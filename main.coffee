@@ -1,10 +1,10 @@
-#Copyright 2013 Magnus Leo. All rights reserved.
+###Copyright 2013 Magnus Leo. All rights reserved.###
 
 #Internal variables
 el = (id) -> document.getElementById id
 canvas = null
 ctx = null
-latestFrameAt = Date.now()
+latestFrameTime = Date.now()
 
 Leo = window.Leo =
     init: ->
@@ -20,7 +20,7 @@ Leo = window.Leo =
         Leo.background.sprite.onload = ->
             setInterval(->
                 Leo.view.cameraPosX = 0.0
-            , 30000)
+            , 15000)
             webkitRequestAnimationFrame(Leo.cycle)
         Leo.background.sprite.src = '_img/sprite-background.png'
 
@@ -31,7 +31,6 @@ Leo = window.Leo =
 
         #Render background chunks
         for chunk in Leo.view.chunks
-            console.log chunk.chunkOffsetX
             for column, x in chunk.tiles
                 for tile, y in column by 2
                     Leo.background.draw(
@@ -40,6 +39,18 @@ Leo = window.Leo =
                         (x + chunk.tileOffsetX + Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
                         ((y >> 1) + chunk.tileOffsetY + Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
                     )
+        # Render Actors
+        for actor in Leo.actors
+            frame = actor.animations[actor.animName].frames[actor.animFrame]
+            ctx.drawImage actor.spriteImg,
+                frame[0], #Source x
+                frame[1], #Source y
+                frame[2], #Source width
+                frame[3], #Source height
+                (actor.posX + frame[4]) * Leo.view.scale, # Position + frame offset X
+                (actor.posY + frame[5]) * Leo.view.scale, # Position + frame offset Y
+                frame[2] * Leo.view.scale, #Destination width
+                frame[3] * Leo.view.scale, #Destination height
 
         #Cloud
         Leo.background.draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
@@ -52,20 +63,36 @@ Leo = window.Leo =
         Leo.background.draw(6, 1, 8 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
 
     cycle: ->
-        thisFrameAt = Date.now()
-        cycleLength = thisFrameAt - latestFrameAt
+        # Frame timing
+        thisFrameTime = Date.now()
+        cycleLengthMs = thisFrameTime - latestFrameTime # Unit milliseconds
+        cycleLengthS = cycleLengthMs * 0.001 # Unit seconds
 
-        Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLength * 0.001
+        # Camera
+        Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS
+
+        # Actors
+        for actor in Leo.actors
+            #Animation
+            animation = actor.animations[actor.animName]
+            maxFrame = animation.frames.length - 1
+            actor.animFrameTimeLeft -= cycleLengthMs
+            while actor.animFrameTimeLeft < 0
+                actor.animFrame++
+                if actor.animFrame > maxFrame
+                    if animation.doLoop then actor.animFrame = 0
+                actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft
+
+        # Finish the frame
         Leo.draw()
-
-        latestFrameAt = thisFrameAt
+        latestFrameTime = thisFrameTime
         webkitRequestAnimationFrame(Leo.cycle)
 
     view:
         scale: 2
         cameraPosX: 0.0 # Unit tile
         cameraPosY: 0.0
-        cameraSpeedX: -1.0 # One tiles per second, positive is right
+        cameraSpeedX: -2.0 # One tiles per second, positive is right
         cameraSpeedY: 0.0
         chunks: [
             chunkOffsetX: 0 # Chunk offset in tiles from world origo, positive is right
@@ -161,7 +188,51 @@ Leo = window.Leo =
                 posY,
                 this.tileSize * Leo.view.scale, #Destination width
                 this.tileSize * Leo.view.scale, #Destination height
+    actors: []
+
+class LeoActor
+    constructor: (properties) ->
+        # Defaults
+        @spritesheet = "" # Name of the spritesheet file
+        @animations =
+            example:
+                frames: [] # [{int x (pixels), y, w, h, offsetX, offsetY, int duration (milliseconds)}, ...]
+                    # frames[f][0] = x
+                    # frames[f][1] = y
+                    # frames[f][2] = w
+                    # frames[f][3] = h
+                    # frames[f][4] = offsetX
+                    # frames[f][5] = offsetY
+                    # frames[f][6] = duration
+                doLoop: false
+                completeFallback: -> # Function at animation complete (or loop)
+        @animFrameTimeLeft = 0 # Time left on current animation frame
+        @animFrame = 0 # Current animation frame
+        @animName = "" # Name of the current animation running
+        @posX = 0
+        @posY = 0
+        @speedX = 0
+        @speedY = 0
+
+        # User defined properties
+        for key, val of properties
+            @[key] = val
+        @spriteImg = new Image()
+        @spriteImg.src = '_img/' + @spritesheet
 
 
 window.onload = ->
     Leo.init()
+    Leo.actors.push new LeoActor(
+        spritesheet: "sprite-olle.png"
+        animations:
+            running:
+                frames: [
+                    [19,0, 30,32, -9,0, 192]
+                    [49,0, 13,32,   0,0, 192]
+                ]
+                doLoop: true
+        animName: "running"
+        posX: 128
+        posY: 192
+    )
