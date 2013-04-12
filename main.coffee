@@ -18,9 +18,6 @@ Leo = window.Leo =
 
         Leo.background.sprite = new Image()
         Leo.background.sprite.onload = ->
-            setInterval(->
-                Leo.view.cameraPosX = 0.0
-            , 15000)
             webkitRequestAnimationFrame(Leo.cycle)
         Leo.background.sprite.src = '_img/sprite-background.png'
 
@@ -36,8 +33,8 @@ Leo = window.Leo =
                     Leo.background.draw(
                         column[y],
                         column[y + 1],
-                        (x + chunk.tileOffsetX + Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
-                        ((y >> 1) + chunk.tileOffsetY + Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
+                        (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
+                        ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
                     )
         # Render Actors
         for actor in Leo.actors
@@ -47,8 +44,8 @@ Leo = window.Leo =
                 frame[1], #Source y
                 frame[2], #Source width
                 frame[3], #Source height
-                (actor.posX + frame[4]) * Leo.view.scale, # Position + frame offset X
-                (actor.posY + frame[5]) * Leo.view.scale, # Position + frame offset Y
+                ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, # Position + frame offset X
+                ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, # Position + frame offset Y
                 frame[2] * Leo.view.scale, #Destination width
                 frame[3] * Leo.view.scale, #Destination height
 
@@ -73,9 +70,10 @@ Leo = window.Leo =
 
         # Actors
         for actor in Leo.actors
-            #Animation
+            # Animation
             animation = actor.animations[actor.animName]
             maxFrame = animation.frames.length - 1
+            if actor.animFrame > maxFrame then actor.animFrame = maxFrame
             actor.animFrameTimeLeft -= cycleLengthMs
             while actor.animFrameTimeLeft < 0
                 actor.animFrame++
@@ -83,16 +81,23 @@ Leo = window.Leo =
                     if animation.doLoop then actor.animFrame = 0
                 actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft
 
+            # Position
+            actor.posX += actor.speedX
+            actor.posY += actor.speedY
+
         # Finish the frame
         Leo.draw()
         latestFrameTime = thisFrameTime
         webkitRequestAnimationFrame(Leo.cycle)
 
+        Leo.cycleCallback()
+    cycleCallback: ->
+
     view:
         scale: 2
-        cameraPosX: 0.0 # Unit tile
+        cameraPosX: 2.0 # Unit tile
         cameraPosY: 0.0
-        cameraSpeedX: -2.0 # One tiles per second, positive is right
+        cameraSpeedX: 0.0 # One tiles per second, positive is right
         cameraSpeedY: 0.0
         chunks: [
             chunkOffsetX: 0 # Chunk offset in tiles from world origo, positive is right
@@ -189,6 +194,9 @@ Leo = window.Leo =
                 this.tileSize * Leo.view.scale, #Destination width
                 this.tileSize * Leo.view.scale, #Destination height
     actors: []
+    util:
+        KEY_CODES: {8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',19:'pause/break',20:'caps lock',27:'escape',33:'page up',34:'page down',35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',45:'insert',46:'delete',48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',86:'v',87:'w',88:'x',89:'y',90:'z',91:'left window key',92:'right window key',93:'select key',96:'numpad 0',97:'numpad 1',98:'numpad 2',99:'numpad 3',100:'numpad 4',101:'numpad 5',102:'numpad 6',103:'numpad 7',104:'numpad 8',105:'numpad 9',106:'multiply',106:'*',107:'add',107:'+',109:'subtract',110:'decimal point',111:'divide',112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',144:'num lock',145:'scroll lock',186:'semi-colon',186:';',187:'equal sign',187:'=',188:'comma',188:',',189:'dash',189:'-',190:'period',190:'.',191:'forward slash',191:'/',192:'grave accent',219:'open bracket',219:'[',220:'back slash',220:'\\',221:'close braket',221:']',222:'single quote',222:'\''}
+
 
 class LeoActor
     constructor: (properties) ->
@@ -219,6 +227,10 @@ class LeoActor
             @[key] = val
         @spriteImg = new Image()
         @spriteImg.src = '_img/' + @spritesheet
+    setAnimation: (animName = '') ->
+        @animFrame = 0
+        @animFrameTimeLeft = @animations[animName].frames[0][6]
+        @animName = animName
 
 
 window.onload = ->
@@ -232,7 +244,31 @@ window.onload = ->
                     [49,0, 13,32,   0,0, 192]
                 ]
                 doLoop: true
-        animName: "running"
-        posX: 128
-        posY: 192
+            standing:
+                frames: [
+                    [0,0, 19,32, 0,0, 1000]
+                ]
+                doLoop: true
+        animName: "standing"
+        posX: 4
+        posY: 12
     )
+    Leo.player = Leo.actors[Leo.actors.length - 1]
+
+    window.addEventListener 'keydown', (e) ->
+        e.preventDefault()
+        #TODO: Add Leo.events.keydown that handles keyboard repeat
+        switch Leo.util.KEY_CODES[e.keyCode]
+            when 'left'
+                Leo.player.speedX = -0.15
+                Leo.player.setAnimation "running"
+            when 'right'
+                Leo.player.speedX = 0.15
+                Leo.player.setAnimation "running"
+
+    window.addEventListener 'keyup', (e) ->
+        Leo.player.speedX = 0
+        Leo.player.setAnimation "standing"
+
+    Leo.cycleCallback = ->
+        Leo.view.cameraPosX = Leo.player.posX - 15

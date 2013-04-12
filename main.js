@@ -26,9 +26,6 @@
       ctx.webkitImageSmoothingEnabled = false;
       Leo.background.sprite = new Image();
       Leo.background.sprite.onload = function() {
-        setInterval(function() {
-          return Leo.view.cameraPosX = 0.0;
-        }, 15000);
         return webkitRequestAnimationFrame(Leo.cycle);
       };
       return Leo.background.sprite.src = '_img/sprite-background.png';
@@ -46,7 +43,7 @@
           column = _ref1[x];
           for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
             tile = column[y];
-            Leo.background.draw(column[y], column[y + 1], (x + chunk.tileOffsetX + Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale, ((y >> 1) + chunk.tileOffsetY + Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale);
+            Leo.background.draw(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale);
           }
         }
       }
@@ -54,7 +51,7 @@
       for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
         actor = _ref2[_l];
         frame = actor.animations[actor.animName].frames[actor.animFrame];
-        ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], (actor.posX + frame[4]) * Leo.view.scale, (actor.posY + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
+        ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
       }
       Leo.background.draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
       Leo.background.draw(4, 0, 6 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
@@ -77,6 +74,9 @@
         actor = _ref[_i];
         animation = actor.animations[actor.animName];
         maxFrame = animation.frames.length - 1;
+        if (actor.animFrame > maxFrame) {
+          actor.animFrame = maxFrame;
+        }
         actor.animFrameTimeLeft -= cycleLengthMs;
         while (actor.animFrameTimeLeft < 0) {
           actor.animFrame++;
@@ -87,16 +87,20 @@
           }
           actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft;
         }
+        actor.posX += actor.speedX;
+        actor.posY += actor.speedY;
       }
       Leo.draw();
       latestFrameTime = thisFrameTime;
-      return webkitRequestAnimationFrame(Leo.cycle);
+      webkitRequestAnimationFrame(Leo.cycle);
+      return Leo.cycleCallback();
     },
+    cycleCallback: function() {},
     view: {
       scale: 2,
-      cameraPosX: 0.0,
+      cameraPosX: 2.0,
       cameraPosY: 0.0,
-      cameraSpeedX: -2.0,
+      cameraSpeedX: 0.0,
       cameraSpeedY: 0.0,
       chunks: [
         {
@@ -126,7 +130,121 @@
         return ctx.drawImage(this.sprite, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX, posY, this.tileSize * Leo.view.scale, this.tileSize * Leo.view.scale);
       }
     },
-    actors: []
+    actors: [],
+    util: {
+      KEY_CODES: {
+        8: 'backspace',
+        9: 'tab',
+        13: 'enter',
+        16: 'shift',
+        17: 'ctrl',
+        18: 'alt',
+        19: 'pause/break',
+        20: 'caps lock',
+        27: 'escape',
+        33: 'page up',
+        34: 'page down',
+        35: 'end',
+        36: 'home',
+        37: 'left',
+        38: 'up',
+        39: 'right',
+        40: 'down',
+        45: 'insert',
+        46: 'delete',
+        48: '0',
+        49: '1',
+        50: '2',
+        51: '3',
+        52: '4',
+        53: '5',
+        54: '6',
+        55: '7',
+        56: '8',
+        57: '9',
+        65: 'a',
+        66: 'b',
+        67: 'c',
+        68: 'd',
+        69: 'e',
+        70: 'f',
+        71: 'g',
+        72: 'h',
+        73: 'i',
+        74: 'j',
+        75: 'k',
+        76: 'l',
+        77: 'm',
+        78: 'n',
+        79: 'o',
+        80: 'p',
+        81: 'q',
+        82: 'r',
+        83: 's',
+        84: 't',
+        85: 'u',
+        86: 'v',
+        87: 'w',
+        88: 'x',
+        89: 'y',
+        90: 'z',
+        91: 'left window key',
+        92: 'right window key',
+        93: 'select key',
+        96: 'numpad 0',
+        97: 'numpad 1',
+        98: 'numpad 2',
+        99: 'numpad 3',
+        100: 'numpad 4',
+        101: 'numpad 5',
+        102: 'numpad 6',
+        103: 'numpad 7',
+        104: 'numpad 8',
+        105: 'numpad 9',
+        106: 'multiply',
+        106: '*',
+        107: 'add',
+        107: '+',
+        109: 'subtract',
+        110: 'decimal point',
+        111: 'divide',
+        112: 'f1',
+        113: 'f2',
+        114: 'f3',
+        115: 'f4',
+        116: 'f5',
+        117: 'f6',
+        118: 'f7',
+        119: 'f8',
+        120: 'f9',
+        121: 'f10',
+        122: 'f11',
+        123: 'f12',
+        144: 'num lock',
+        145: 'scroll lock',
+        186: 'semi-colon',
+        186: ';',
+        187: 'equal sign',
+        187: '=',
+        188: 'comma',
+        188: ',',
+        189: 'dash',
+        189: '-',
+        190: 'period',
+        190: '.',
+        191: 'forward slash',
+        191: '/',
+        192: 'grave accent',
+        219: 'open bracket',
+        219: '[',
+        220: 'back slash',
+        220: '\\',
+        221: 'close braket',
+        221: ']',
+        222: 'single quote',
+        222: '\''
+      }
+    }
   };
 
   LeoActor = (function() {
@@ -156,24 +274,56 @@
       this.spriteImg.src = '_img/' + this.spritesheet;
     }
 
+    LeoActor.prototype.setAnimation = function(animName) {
+      if (animName == null) {
+        animName = '';
+      }
+      this.animFrame = 0;
+      this.animFrameTimeLeft = this.animations[animName].frames[0][6];
+      return this.animName = animName;
+    };
+
     return LeoActor;
 
   })();
 
   window.onload = function() {
     Leo.init();
-    return Leo.actors.push(new LeoActor({
+    Leo.actors.push(new LeoActor({
       spritesheet: "sprite-olle.png",
       animations: {
         running: {
           frames: [[19, 0, 30, 32, -9, 0, 192], [49, 0, 13, 32, 0, 0, 192]],
           doLoop: true
+        },
+        standing: {
+          frames: [[0, 0, 19, 32, 0, 0, 1000]],
+          doLoop: true
         }
       },
-      animName: "running",
-      posX: 128,
-      posY: 192
+      animName: "standing",
+      posX: 4,
+      posY: 12
     }));
+    Leo.player = Leo.actors[Leo.actors.length - 1];
+    window.addEventListener('keydown', function(e) {
+      e.preventDefault();
+      switch (Leo.util.KEY_CODES[e.keyCode]) {
+        case 'left':
+          Leo.player.speedX = -0.15;
+          return Leo.player.setAnimation("running");
+        case 'right':
+          Leo.player.speedX = 0.15;
+          return Leo.player.setAnimation("running");
+      }
+    });
+    window.addEventListener('keyup', function(e) {
+      Leo.player.speedX = 0;
+      return Leo.player.setAnimation("standing");
+    });
+    return Leo.cycleCallback = function() {
+      return Leo.view.cameraPosX = Leo.player.posX - 15;
+    };
   };
 
 }).call(this);
