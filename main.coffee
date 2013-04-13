@@ -2,19 +2,19 @@
 
 #Internal variables
 el = (id) -> document.getElementById id
-canvas = null
-ctx = null
-latestFrameTime = Date.now()
+_canvas = null
+_ctx = null
+_latestFrameTime = Date.now()
 
 Leo = window.Leo =
     init: ->
-        canvas = el('leo-view')
-        canvas.width = canvas.width * Leo.view.scale;
-        canvas.height = canvas.height * Leo.view.scale;
+        _canvas = el('leo-view')
+        _canvas.width = _canvas.width * Leo.view.scale;
+        _canvas.height = _canvas.height * Leo.view.scale;
 
-        ctx = canvas.getContext('2d')
-        ctx.imageSmoothingEnabled = false;
-        ctx.webkitImageSmoothingEnabled = false;
+        _ctx = _canvas.getContext('2d')
+        _ctx.imageSmoothingEnabled = false;
+        _ctx.webkitImageSmoothingEnabled = false;
 
         Leo.background.sprite = new Image()
         Leo.background.sprite.onload = ->
@@ -22,9 +22,9 @@ Leo = window.Leo =
         Leo.background.sprite.src = '_img/sprite-background.png'
 
     draw: ->
-        #Sky
-        ctx.fillStyle = Leo.background.color
-        ctx.fillRect 0, 0, canvas.width, canvas.height
+        # Background color
+        _ctx.fillStyle = Leo.background.color
+        _ctx.fillRect 0, 0, _canvas.width, _canvas.height
 
         #Render background chunks
         for chunk in Leo.view.chunks
@@ -39,7 +39,7 @@ Leo = window.Leo =
         # Render Actors
         for actor in Leo.actors
             frame = actor.animations[actor.animName].frames[actor.animFrame]
-            ctx.drawImage actor.spriteImg,
+            _ctx.drawImage actor.spriteImg,
                 frame[0], #Source x
                 frame[1], #Source y
                 frame[2], #Source width
@@ -62,7 +62,7 @@ Leo = window.Leo =
     cycle: ->
         # Frame timing
         thisFrameTime = Date.now()
-        cycleLengthMs = thisFrameTime - latestFrameTime # Unit milliseconds
+        cycleLengthMs = thisFrameTime - _latestFrameTime # Unit milliseconds
         cycleLengthS = cycleLengthMs * 0.001 # Unit seconds
 
         # Camera
@@ -87,7 +87,7 @@ Leo = window.Leo =
 
         # Finish the frame
         Leo.draw()
-        latestFrameTime = thisFrameTime
+        _latestFrameTime = thisFrameTime
         webkitRequestAnimationFrame(Leo.cycle)
 
         Leo.cycleCallback()
@@ -184,7 +184,7 @@ Leo = window.Leo =
             if (spriteX == -1 || spriteY == -1)
                 return;
 
-            ctx.drawImage this.sprite,
+            _ctx.drawImage this.sprite,
                 spriteX * this.tileSize,
                 spriteY * this.tileSize,
                 this.tileSize, #Source width

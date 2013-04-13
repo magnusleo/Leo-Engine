@@ -4,26 +4,26 @@
 
 
 (function() {
-  var Leo, LeoActor, canvas, ctx, el, latestFrameTime;
+  var Leo, LeoActor, el, _canvas, _ctx, _latestFrameTime;
 
   el = function(id) {
     return document.getElementById(id);
   };
 
-  canvas = null;
+  _canvas = null;
 
-  ctx = null;
+  _ctx = null;
 
-  latestFrameTime = Date.now();
+  _latestFrameTime = Date.now();
 
   Leo = window.Leo = {
     init: function() {
-      canvas = el('leo-view');
-      canvas.width = canvas.width * Leo.view.scale;
-      canvas.height = canvas.height * Leo.view.scale;
-      ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      ctx.webkitImageSmoothingEnabled = false;
+      _canvas = el('leo-view');
+      _canvas.width = _canvas.width * Leo.view.scale;
+      _canvas.height = _canvas.height * Leo.view.scale;
+      _ctx = _canvas.getContext('2d');
+      _ctx.imageSmoothingEnabled = false;
+      _ctx.webkitImageSmoothingEnabled = false;
       Leo.background.sprite = new Image();
       Leo.background.sprite.onload = function() {
         return webkitRequestAnimationFrame(Leo.cycle);
@@ -33,8 +33,8 @@
     draw: function() {
       var actor, chunk, column, frame, tile, x, y, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
 
-      ctx.fillStyle = Leo.background.color;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      _ctx.fillStyle = Leo.background.color;
+      _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
       _ref = Leo.view.chunks;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         chunk = _ref[_i];
@@ -51,7 +51,7 @@
       for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
         actor = _ref2[_l];
         frame = actor.animations[actor.animName].frames[actor.animFrame];
-        ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
+        _ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
       }
       Leo.background.draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
       Leo.background.draw(4, 0, 6 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
@@ -66,7 +66,7 @@
       var actor, animation, cycleLengthMs, cycleLengthS, maxFrame, thisFrameTime, _i, _len, _ref;
 
       thisFrameTime = Date.now();
-      cycleLengthMs = thisFrameTime - latestFrameTime;
+      cycleLengthMs = thisFrameTime - _latestFrameTime;
       cycleLengthS = cycleLengthMs * 0.001;
       Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS;
       _ref = Leo.actors;
@@ -91,7 +91,7 @@
         actor.posY += actor.speedY;
       }
       Leo.draw();
-      latestFrameTime = thisFrameTime;
+      _latestFrameTime = thisFrameTime;
       webkitRequestAnimationFrame(Leo.cycle);
       return Leo.cycleCallback();
     },
