@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Leo, LeoActor, el, _canvas, _ctx, _latestFrameTime;
+  var Leo, LeoActor, el, _canvas, _ctx, _latestFrameTime, _pressedKeys;
 
   el = function(id) {
     return document.getElementById(id);
@@ -15,6 +15,8 @@
   _ctx = null;
 
   _latestFrameTime = Date.now();
+
+  _pressedKeys = [];
 
   Leo = window.Leo = {
     init: function() {
@@ -28,7 +30,9 @@
       Leo.background.sprite.onload = function() {
         return webkitRequestAnimationFrame(Leo.cycle);
       };
-      return Leo.background.sprite.src = '_img/sprite-background.png';
+      Leo.background.sprite.src = '_img/sprite-background.png';
+      window.addEventListener('keydown', Leo.event._keydown);
+      return window.addEventListener('keyup', Leo.event._keyup);
     },
     draw: function() {
       var actor, chunk, column, frame, tile, x, y, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
@@ -83,6 +87,8 @@
           if (actor.animFrame > maxFrame) {
             if (animation.doLoop) {
               actor.animFrame = 0;
+            } else {
+              actor.animFrame--;
             }
           }
           actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft;
@@ -127,10 +133,34 @@
         if (spriteX === -1 || spriteY === -1) {
           return;
         }
-        return ctx.drawImage(this.sprite, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX, posY, this.tileSize * Leo.view.scale, this.tileSize * Leo.view.scale);
+        return _ctx.drawImage(this.sprite, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX, posY, this.tileSize * Leo.view.scale, this.tileSize * Leo.view.scale);
       }
     },
     actors: [],
+    event: {
+      _keydown: function(e) {
+        var keyIndex;
+
+        e.preventDefault();
+        keyIndex = _pressedKeys.indexOf(e.keyCode);
+        if (keyIndex === -1) {
+          _pressedKeys.push(e.keyCode);
+          return Leo.event.keydown(e);
+        }
+      },
+      keydown: function(e) {},
+      _keyup: function(e) {
+        var keyIndex;
+
+        e.preventDefault();
+        keyIndex = _pressedKeys.indexOf(e.keyCode);
+        if (keyIndex !== -1) {
+          _pressedKeys.splice(keyIndex, 1);
+        }
+        return Leo.event.keyup(e);
+      },
+      keyup: function(e) {}
+    },
     util: {
       KEY_CODES: {
         8: 'backspace',
@@ -292,35 +322,50 @@
     Leo.actors.push(new LeoActor({
       spritesheet: "sprite-olle.png",
       animations: {
-        running: {
-          frames: [[19, 0, 30, 32, -9, 0, 192], [49, 0, 13, 32, 0, 0, 192]],
+        runningLeft: {
+          frames: [[19, 33, 30, 32, -4, 0, 192], [49, 33, 13, 32, 4, 0, 192]],
           doLoop: true
         },
-        standing: {
-          frames: [[0, 0, 19, 32, 0, 0, 1000]],
+        runningRight: {
+          frames: [[19, 0, 30, 32, -8, 0, 192], [49, 0, 13, 32, 1, 0, 192]],
           doLoop: true
+        },
+        standingLeft: {
+          frames: [[0, 33, 19, 32, 1, 0, 1000]],
+          doLoop: false
+        },
+        standingRight: {
+          frames: [[0, 0, 19, 32, -1, 0, 1000]],
+          doLoop: false
         }
       },
-      animName: "standing",
+      animName: "standingRight",
       posX: 4,
       posY: 12
     }));
     Leo.player = Leo.actors[Leo.actors.length - 1];
-    window.addEventListener('keydown', function(e) {
-      e.preventDefault();
+    Leo.event.keydown = function(e) {
       switch (Leo.util.KEY_CODES[e.keyCode]) {
         case 'left':
           Leo.player.speedX = -0.15;
-          return Leo.player.setAnimation("running");
+          return Leo.player.setAnimation("runningLeft");
         case 'right':
           Leo.player.speedX = 0.15;
-          return Leo.player.setAnimation("running");
+          return Leo.player.setAnimation("runningRight");
+        case 'r':
+          return window.location.reload();
       }
-    });
-    window.addEventListener('keyup', function(e) {
-      Leo.player.speedX = 0;
-      return Leo.player.setAnimation("standing");
-    });
+    };
+    Leo.event.keyup = function(e) {
+      switch (Leo.util.KEY_CODES[e.keyCode]) {
+        case 'left':
+          Leo.player.setAnimation("standingLeft");
+          return Leo.player.speedX = 0;
+        case 'right':
+          Leo.player.setAnimation("standingRight");
+          return Leo.player.speedX = 0;
+      }
+    };
     return Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
     };

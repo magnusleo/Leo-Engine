@@ -5,6 +5,7 @@ el = (id) -> document.getElementById id
 _canvas = null
 _ctx = null
 _latestFrameTime = Date.now()
+_pressedKeys = []
 
 Leo = window.Leo =
     init: ->
@@ -21,12 +22,15 @@ Leo = window.Leo =
             webkitRequestAnimationFrame(Leo.cycle)
         Leo.background.sprite.src = '_img/sprite-background.png'
 
+        window.addEventListener 'keydown', Leo.event._keydown
+        window.addEventListener 'keyup',   Leo.event._keyup
+
     draw: ->
         # Background color
         _ctx.fillStyle = Leo.background.color
         _ctx.fillRect 0, 0, _canvas.width, _canvas.height
 
-        #Render background chunks
+        # Render background chunks
         for chunk in Leo.view.chunks
             for column, x in chunk.tiles
                 for tile, y in column by 2
@@ -78,7 +82,7 @@ Leo = window.Leo =
             while actor.animFrameTimeLeft < 0
                 actor.animFrame++
                 if actor.animFrame > maxFrame
-                    if animation.doLoop then actor.animFrame = 0
+                    if animation.doLoop then actor.animFrame = 0 else actor.animFrame--
                 actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft
 
             # Position
@@ -194,6 +198,28 @@ Leo = window.Leo =
                 this.tileSize * Leo.view.scale, #Destination width
                 this.tileSize * Leo.view.scale, #Destination height
     actors: []
+    event:
+        _keydown: (e) ->
+            e.preventDefault()
+
+            # Prevent keydown repeat
+            keyIndex = _pressedKeys.indexOf e.keyCode
+            if keyIndex is -1
+                _pressedKeys.push e.keyCode
+                Leo.event.keydown e
+
+        keydown: (e) ->
+            # Override Leo.event.keydown with your keydown function
+
+        _keyup: (e) ->
+            e.preventDefault()
+            keyIndex = _pressedKeys.indexOf e.keyCode
+            if keyIndex isnt -1
+                _pressedKeys.splice keyIndex, 1
+            Leo.event.keyup e
+
+        keyup: (e) ->
+            # Override Leo.event.keyup with your keyup function
     util:
         KEY_CODES: {8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',19:'pause/break',20:'caps lock',27:'escape',33:'page up',34:'page down',35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',45:'insert',46:'delete',48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',86:'v',87:'w',88:'x',89:'y',90:'z',91:'left window key',92:'right window key',93:'select key',96:'numpad 0',97:'numpad 1',98:'numpad 2',99:'numpad 3',100:'numpad 4',101:'numpad 5',102:'numpad 6',103:'numpad 7',104:'numpad 8',105:'numpad 9',106:'multiply',106:'*',107:'add',107:'+',109:'subtract',110:'decimal point',111:'divide',112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',144:'num lock',145:'scroll lock',186:'semi-colon',186:';',187:'equal sign',187:'=',188:'comma',188:',',189:'dash',189:'-',190:'period',190:'.',191:'forward slash',191:'/',192:'grave accent',219:'open bracket',219:'[',220:'back slash',220:'\\',221:'close braket',221:']',222:'single quote',222:'\''}
 
@@ -238,37 +264,53 @@ window.onload = ->
     Leo.actors.push new LeoActor(
         spritesheet: "sprite-olle.png"
         animations:
-            running:
+            runningLeft:
                 frames: [
-                    [19,0, 30,32, -9,0, 192]
-                    [49,0, 13,32,   0,0, 192]
+                    [19,33, 30,32, -4,0, 192]
+                    [49,33, 13,32,   4,0, 192]
                 ]
                 doLoop: true
-            standing:
+            runningRight:
                 frames: [
-                    [0,0, 19,32, 0,0, 1000]
+                    [19,0, 30,32, -8,0, 192]
+                    [49,0, 13,32,   1,0, 192]
                 ]
                 doLoop: true
-        animName: "standing"
+            standingLeft:
+                frames: [
+                    [0,33, 19,32, 1,0, 1000]
+                ]
+                doLoop: false
+            standingRight:
+                frames: [
+                    [0,0, 19,32, -1,0, 1000]
+                ]
+                doLoop: false
+        animName: "standingRight"
         posX: 4
         posY: 12
     )
     Leo.player = Leo.actors[Leo.actors.length - 1]
 
-    window.addEventListener 'keydown', (e) ->
-        e.preventDefault()
-        #TODO: Add Leo.events.keydown that handles keyboard repeat
+    Leo.event.keydown = (e) ->
         switch Leo.util.KEY_CODES[e.keyCode]
             when 'left'
                 Leo.player.speedX = -0.15
-                Leo.player.setAnimation "running"
+                Leo.player.setAnimation "runningLeft"
             when 'right'
                 Leo.player.speedX = 0.15
-                Leo.player.setAnimation "running"
+                Leo.player.setAnimation "runningRight"
+            when 'r'
+                window.location.reload()
 
-    window.addEventListener 'keyup', (e) ->
-        Leo.player.speedX = 0
-        Leo.player.setAnimation "standing"
+    Leo.event.keyup = (e) ->
+        switch Leo.util.KEY_CODES[e.keyCode]
+            when 'left'
+                Leo.player.setAnimation "standingLeft"
+                Leo.player.speedX = 0
+            when 'right'
+                Leo.player.setAnimation "standingRight"
+                Leo.player.speedX = 0
 
     Leo.cycleCallback = ->
         Leo.view.cameraPosX = Leo.player.posX - 15
