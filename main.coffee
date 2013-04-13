@@ -17,29 +17,27 @@ Leo = window.Leo =
         _ctx.imageSmoothingEnabled = false;
         _ctx.webkitImageSmoothingEnabled = false;
 
-        Leo.background.sprite = new Image()
-        Leo.background.sprite.onload = ->
-            webkitRequestAnimationFrame(Leo.cycle)
-        Leo.background.sprite.src = '_img/sprite-background.png'
-
         window.addEventListener 'keydown', Leo.event._keydown
         window.addEventListener 'keyup',   Leo.event._keyup
+
+        webkitRequestAnimationFrame(Leo.cycle)
 
     draw: ->
         # Background color
         _ctx.fillStyle = Leo.background.color
         _ctx.fillRect 0, 0, _canvas.width, _canvas.height
 
-        # Render background chunks
-        for chunk in Leo.view.chunks
-            for column, x in chunk.tiles
-                for tile, y in column by 2
-                    Leo.background.draw(
-                        column[y],
-                        column[y + 1],
-                        (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
-                        ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
-                    )
+        # Render layers
+        for layer in Leo.layers
+            for chunk in layer.chunks
+                for column, x in chunk.tiles
+                    for tile, y in column by 2
+                        layer.draw(
+                            column[y],
+                            column[y + 1],
+                            (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
+                            ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
+                        )
         # Render Actors
         for actor in Leo.actors
             frame = actor.animations[actor.animName].frames[actor.animFrame]
@@ -54,14 +52,14 @@ Leo = window.Leo =
                 frame[3] * Leo.view.scale, #Destination height
 
         #Cloud
-        Leo.background.draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(4, 0, 6 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(5, 0, 7 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(6, 0, 8 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(3, 1, 5 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(4, 1, 6 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(5, 1, 7 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
-        Leo.background.draw(6, 1, 8 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(4, 0, 6 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(5, 0, 7 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(6, 0, 8 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(3, 1, 5 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(4, 1, 6 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
+        Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale)
 
     cycle: ->
         # Frame timing
@@ -103,13 +101,175 @@ Leo = window.Leo =
         cameraPosY: 0.0
         cameraSpeedX: 0.0 # One tiles per second, positive is right
         cameraSpeedY: 0.0
-        chunks: [
-            chunkOffsetX: 0 # Chunk offset in tiles from world origo, positive is right
-            chunkOffsetY: 0 # Chunk offset in tiles from world origo, positive is up
+    
+    background:
+        tileSize: 16
+        color: '#6ec0ff'
+
+    actors: []
+    layers: []
+    event:
+        _keydown: (e) ->
+            e.preventDefault()
+
+            # Prevent keydown repeat
+            keyIndex = _pressedKeys.indexOf e.keyCode
+            if keyIndex is -1
+                _pressedKeys.push e.keyCode
+                Leo.event.keydown e
+
+        keydown: (e) ->
+            # Override Leo.event.keydown with your keydown function
+
+        _keyup: (e) ->
+            e.preventDefault()
+            keyIndex = _pressedKeys.indexOf e.keyCode
+            if keyIndex isnt -1
+                _pressedKeys.splice keyIndex, 1
+            Leo.event.keyup e
+
+        keyup: (e) ->
+            # Override Leo.event.keyup with your keyup function
+    util:
+        KEY_CODES: {8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',19:'pause/break',20:'caps lock',27:'escape',33:'page up',34:'page down',35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',45:'insert',46:'delete',48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',86:'v',87:'w',88:'x',89:'y',90:'z',91:'left window key',92:'right window key',93:'select key',96:'numpad 0',97:'numpad 1',98:'numpad 2',99:'numpad 3',100:'numpad 4',101:'numpad 5',102:'numpad 6',103:'numpad 7',104:'numpad 8',105:'numpad 9',106:'multiply',106:'*',107:'add',107:'+',109:'subtract',110:'decimal point',111:'divide',112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',144:'num lock',145:'scroll lock',186:'semi-colon',186:';',187:'equal sign',187:'=',188:'comma',188:',',189:'dash',189:'-',190:'period',190:'.',191:'forward slash',191:'/',192:'grave accent',219:'open bracket',219:'[',220:'back slash',220:'\\',221:'close braket',221:']',222:'single quote',222:'\''}
+
+
+class LeoActor
+    constructor: (properties) ->
+        # Defaults
+        @spritesheet = "" # Name of the spritesheet file
+        @animations =
+            example:
+                frames: [] # [{int x (pixels), y, w, h, offsetX, offsetY, int duration (milliseconds)}, ...]
+                    # frames[f][0] = x
+                    # frames[f][1] = y
+                    # frames[f][2] = w
+                    # frames[f][3] = h
+                    # frames[f][4] = offsetX
+                    # frames[f][5] = offsetY
+                    # frames[f][6] = duration
+                doLoop: false
+                completeFallback: -> # Function at animation complete (or loop)
+        @animFrameTimeLeft = 0 # Time left on current animation frame
+        @animFrame = 0 # Current animation frame
+        @animName = "" # Name of the current animation running
+        @posX = 0
+        @posY = 0
+        @speedX = 0
+        @speedY = 0
+
+        # User defined properties
+        for key, val of properties
+            @[key] = val
+        @spriteImg = new Image()
+        @spriteImg.src = '_img/' + @spritesheet
+
+    setAnimation: (animName = '') ->
+        @animFrame = 0
+        @animFrameTimeLeft = @animations[animName].frames[0][6]
+        @animName = animName
+
+class LeoLayer
+    constructor: (properties) ->
+        # Defaults
+        @spritesheet = "" # Name of the spritesheet file
+        @tileSize = 16 # Pixel size of one tile
+        @chunks = [
+            chunkOffsetX: 0
+            chunkOffsetY: 0
             colBoxes: [] # [tl1,tr1,bl1,br1, ... tln,trn,bln,brn]
             tileOffsetX: 0 # Number of tiles offset in X
-            tileOffsetY: 13 # Number of tiles offset in Y
-            tiles:[ # Tile sprite positions [x1,y1, ... xn, yn] -1 is nothing/transparent
+            tileOffsetY: 0 # Number of tiles offset in Y
+            tiles:[] # Tile sprite positions [x1,y1, ... xn, yn] -1 is nothing/transparent
+        ]
+        @parallax = 1.0
+        @looping = false
+
+        # User defined properties
+        for key, val of properties
+            @[key] = val
+        @spriteImg = new Image()
+        @spriteImg.src = '_img/' + @spritesheet
+
+    draw: (spriteX, spriteY, posX, posY) ->
+        if spriteX == -1 or spriteY == -1 then return
+
+        _ctx.drawImage @spriteImg,
+            spriteX * @tileSize,
+            spriteY * @tileSize,
+            @tileSize, #Source width
+            @tileSize, #Source height
+            posX,
+            posY,
+            @tileSize * Leo.view.scale, #Destination width
+            @tileSize * Leo.view.scale, #Destination height
+
+
+window.onload = ->
+    Leo.init()
+    Leo.actors.push new LeoActor(
+        spritesheet: "sprite-olle.png"
+        animations:
+            runningLeft:
+                frames: [
+                    [19,33, 30,32, -4,0, 192]
+                    [49,33, 13,32,   4,0, 192]
+                ]
+                doLoop: true
+            runningRight:
+                frames: [
+                    [19,0, 30,32, -8,0, 192]
+                    [49,0, 13,32,   1,0, 192]
+                ]
+                doLoop: true
+            standingLeft:
+                frames: [
+                    [0,33, 19,32, 1,0, 1000]
+                ]
+                doLoop: false
+            standingRight:
+                frames: [
+                    [0,0, 19,32, -1,0, 1000]
+                ]
+                doLoop: false
+        animName: "standingRight"
+        posX: 6
+        posY: 12
+    )
+    Leo.player = Leo.actors[Leo.actors.length - 1]
+
+    Leo.event.keydown = (e) ->
+        switch Leo.util.KEY_CODES[e.keyCode]
+            when 'left'
+                Leo.player.speedX = -0.15
+                Leo.player.setAnimation "runningLeft"
+            when 'right'
+                Leo.player.speedX = 0.15
+                Leo.player.setAnimation "runningRight"
+            when 'r'
+                window.location.reload()
+
+    Leo.event.keyup = (e) ->
+        switch Leo.util.KEY_CODES[e.keyCode]
+            when 'left'
+                Leo.player.setAnimation "standingLeft"
+                Leo.player.speedX = 0
+            when 'right'
+                Leo.player.setAnimation "standingRight"
+                Leo.player.speedX = 0
+
+    Leo.cycleCallback = ->
+        Leo.view.cameraPosX = Leo.player.posX - 15
+
+    Leo.layers.push new LeoLayer(
+        spritesheet: 'sprite-background.png'
+        chunks: [
+            chunkOffsetX: 0
+            chunkOffsetY: 0
+            colBoxes: []
+            tileOffsetX: 0
+            tileOffsetY: 13
+            tiles:[
                 [-1,-1, 0,2, 0,3, 0,3]
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
@@ -180,137 +340,4 @@ Leo = window.Leo =
                 [-1,-1, 3,2, 3,3, 3,3]
             ]
         ]
-    
-    background:
-        tileSize: 16
-        color: '#6ec0ff'
-        draw: (spriteX, spriteY, posX, posY) ->
-            if (spriteX == -1 || spriteY == -1)
-                return;
-
-            _ctx.drawImage this.sprite,
-                spriteX * this.tileSize,
-                spriteY * this.tileSize,
-                this.tileSize, #Source width
-                this.tileSize, #Source height
-                posX,
-                posY,
-                this.tileSize * Leo.view.scale, #Destination width
-                this.tileSize * Leo.view.scale, #Destination height
-    actors: []
-    event:
-        _keydown: (e) ->
-            e.preventDefault()
-
-            # Prevent keydown repeat
-            keyIndex = _pressedKeys.indexOf e.keyCode
-            if keyIndex is -1
-                _pressedKeys.push e.keyCode
-                Leo.event.keydown e
-
-        keydown: (e) ->
-            # Override Leo.event.keydown with your keydown function
-
-        _keyup: (e) ->
-            e.preventDefault()
-            keyIndex = _pressedKeys.indexOf e.keyCode
-            if keyIndex isnt -1
-                _pressedKeys.splice keyIndex, 1
-            Leo.event.keyup e
-
-        keyup: (e) ->
-            # Override Leo.event.keyup with your keyup function
-    util:
-        KEY_CODES: {8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',19:'pause/break',20:'caps lock',27:'escape',33:'page up',34:'page down',35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',45:'insert',46:'delete',48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',86:'v',87:'w',88:'x',89:'y',90:'z',91:'left window key',92:'right window key',93:'select key',96:'numpad 0',97:'numpad 1',98:'numpad 2',99:'numpad 3',100:'numpad 4',101:'numpad 5',102:'numpad 6',103:'numpad 7',104:'numpad 8',105:'numpad 9',106:'multiply',106:'*',107:'add',107:'+',109:'subtract',110:'decimal point',111:'divide',112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',144:'num lock',145:'scroll lock',186:'semi-colon',186:';',187:'equal sign',187:'=',188:'comma',188:',',189:'dash',189:'-',190:'period',190:'.',191:'forward slash',191:'/',192:'grave accent',219:'open bracket',219:'[',220:'back slash',220:'\\',221:'close braket',221:']',222:'single quote',222:'\''}
-
-
-class LeoActor
-    constructor: (properties) ->
-        # Defaults
-        @spritesheet = "" # Name of the spritesheet file
-        @animations =
-            example:
-                frames: [] # [{int x (pixels), y, w, h, offsetX, offsetY, int duration (milliseconds)}, ...]
-                    # frames[f][0] = x
-                    # frames[f][1] = y
-                    # frames[f][2] = w
-                    # frames[f][3] = h
-                    # frames[f][4] = offsetX
-                    # frames[f][5] = offsetY
-                    # frames[f][6] = duration
-                doLoop: false
-                completeFallback: -> # Function at animation complete (or loop)
-        @animFrameTimeLeft = 0 # Time left on current animation frame
-        @animFrame = 0 # Current animation frame
-        @animName = "" # Name of the current animation running
-        @posX = 0
-        @posY = 0
-        @speedX = 0
-        @speedY = 0
-
-        # User defined properties
-        for key, val of properties
-            @[key] = val
-        @spriteImg = new Image()
-        @spriteImg.src = '_img/' + @spritesheet
-    setAnimation: (animName = '') ->
-        @animFrame = 0
-        @animFrameTimeLeft = @animations[animName].frames[0][6]
-        @animName = animName
-
-
-window.onload = ->
-    Leo.init()
-    Leo.actors.push new LeoActor(
-        spritesheet: "sprite-olle.png"
-        animations:
-            runningLeft:
-                frames: [
-                    [19,33, 30,32, -4,0, 192]
-                    [49,33, 13,32,   4,0, 192]
-                ]
-                doLoop: true
-            runningRight:
-                frames: [
-                    [19,0, 30,32, -8,0, 192]
-                    [49,0, 13,32,   1,0, 192]
-                ]
-                doLoop: true
-            standingLeft:
-                frames: [
-                    [0,33, 19,32, 1,0, 1000]
-                ]
-                doLoop: false
-            standingRight:
-                frames: [
-                    [0,0, 19,32, -1,0, 1000]
-                ]
-                doLoop: false
-        animName: "standingRight"
-        posX: 4
-        posY: 12
     )
-    Leo.player = Leo.actors[Leo.actors.length - 1]
-
-    Leo.event.keydown = (e) ->
-        switch Leo.util.KEY_CODES[e.keyCode]
-            when 'left'
-                Leo.player.speedX = -0.15
-                Leo.player.setAnimation "runningLeft"
-            when 'right'
-                Leo.player.speedX = 0.15
-                Leo.player.setAnimation "runningRight"
-            when 'r'
-                window.location.reload()
-
-    Leo.event.keyup = (e) ->
-        switch Leo.util.KEY_CODES[e.keyCode]
-            when 'left'
-                Leo.player.setAnimation "standingLeft"
-                Leo.player.speedX = 0
-            when 'right'
-                Leo.player.setAnimation "standingRight"
-                Leo.player.speedX = 0
-
-    Leo.cycleCallback = ->
-        Leo.view.cameraPosX = Leo.player.posX - 15
