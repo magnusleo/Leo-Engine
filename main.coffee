@@ -130,6 +130,23 @@ Leo = window.Leo =
 
         keyup: (e) ->
             # Override Leo.event.keyup with your keyup function
+
+    sprites:
+        getImg: (path) ->
+            _img = Leo.sprites._img
+            if _img[path]
+                return _img[path]
+            else
+                _imgObj = _img[path] = new Image()
+                _imgObj.src = '_img/' + path
+                return _imgObj
+
+        remove: (path) ->
+            _img = Leo.sprites._img
+            if _img[path] then _img[path] = null
+
+        _img: {} # Hashmap of image objects with the sprite path as key
+
     util:
         KEY_CODES: {8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',19:'pause/break',20:'caps lock',27:'escape',33:'page up',34:'page down',35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',45:'insert',46:'delete',48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',86:'v',87:'w',88:'x',89:'y',90:'z',91:'left window key',92:'right window key',93:'select key',96:'numpad 0',97:'numpad 1',98:'numpad 2',99:'numpad 3',100:'numpad 4',101:'numpad 5',102:'numpad 6',103:'numpad 7',104:'numpad 8',105:'numpad 9',106:'multiply',106:'*',107:'add',107:'+',109:'subtract',110:'decimal point',111:'divide',112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',144:'num lock',145:'scroll lock',186:'semi-colon',186:';',187:'equal sign',187:'=',188:'comma',188:',',189:'dash',189:'-',190:'period',190:'.',191:'forward slash',191:'/',192:'grave accent',219:'open bracket',219:'[',220:'back slash',220:'\\',221:'close braket',221:']',222:'single quote',222:'\''}
 
@@ -161,13 +178,13 @@ class LeoActor
         # User defined properties
         for key, val of properties
             @[key] = val
-        @spriteImg = new Image()
-        @spriteImg.src = '_img/' + @spritesheet
+        @spriteImg = Leo.sprites.getImg @spritesheet
 
     setAnimation: (animName = '') ->
         @animFrame = 0
         @animFrameTimeLeft = @animations[animName].frames[0][6]
         @animName = animName
+
 
 class LeoLayer
     constructor: (properties) ->
@@ -183,13 +200,11 @@ class LeoLayer
             tiles:[] # Tile sprite positions [x1,y1, ... xn, yn] -1 is nothing/transparent
         ]
         @parallax = 1.0
-        @looping = false
 
         # User defined properties
         for key, val of properties
             @[key] = val
-        @spriteImg = new Image()
-        @spriteImg.src = '_img/' + @spritesheet
+        @spriteImg = Leo.sprites.getImg @spritesheet
 
     draw: (spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return
@@ -203,6 +218,7 @@ class LeoLayer
             posY,
             @tileSize * Leo.view.scale, #Destination width
             @tileSize * Leo.view.scale, #Destination height
+
 
 
 window.onload = ->

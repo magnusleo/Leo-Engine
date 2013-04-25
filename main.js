@@ -139,6 +139,29 @@
       },
       keyup: function(e) {}
     },
+    sprites: {
+      getImg: function(path) {
+        var _img, _imgObj;
+
+        _img = Leo.sprites._img;
+        if (_img[path]) {
+          return _img[path];
+        } else {
+          _imgObj = _img[path] = new Image();
+          _imgObj.src = '_img/' + path;
+          return _imgObj;
+        }
+      },
+      remove: function(path) {
+        var _img;
+
+        _img = Leo.sprites._img;
+        if (_img[path]) {
+          return _img[path] = null;
+        }
+      },
+      _img: {}
+    },
     util: {
       KEY_CODES: {
         8: 'backspace',
@@ -278,8 +301,7 @@
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = new Image();
-      this.spriteImg.src = '_img/' + this.spritesheet;
+      this.spriteImg = Leo.sprites.getImg(this.spritesheet);
     }
 
     LeoActor.prototype.setAnimation = function(animName) {
@@ -312,13 +334,11 @@
         }
       ];
       this.parallax = 1.0;
-      this.looping = false;
       for (key in properties) {
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = new Image();
-      this.spriteImg.src = '_img/' + this.spritesheet;
+      this.spriteImg = Leo.sprites.getImg(this.spritesheet);
     }
 
     LeoLayer.prototype.draw = function(spriteX, spriteY, posX, posY) {
