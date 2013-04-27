@@ -4,15 +4,19 @@
 
 
 (function() {
-  var Leo, LeoActor, LeoLayer, el, _canvas, _ctx, _latestFrameTime, _pressedKeys;
+  var Leo, LeoActor, LeoLayer, el, _latestFrameTime, _pressedKeys, _renderBuffer, _renderBufferCtx, _view, _viewCtx;
 
   el = function(id) {
     return document.getElementById(id);
   };
 
-  _canvas = null;
+  _view = null;
 
-  _ctx = null;
+  _viewCtx = null;
+
+  _renderBuffer = document.createElement('canvas');
+
+  _renderBufferCtx = _renderBuffer.getContext('2d');
 
   _latestFrameTime = Date.now();
 
@@ -20,21 +24,23 @@
 
   Leo = window.Leo = {
     init: function() {
-      _canvas = el('leo-view');
-      _canvas.width = _canvas.width * Leo.view.scale;
-      _canvas.height = _canvas.height * Leo.view.scale;
-      _ctx = _canvas.getContext('2d');
-      _ctx.imageSmoothingEnabled = false;
-      _ctx.webkitImageSmoothingEnabled = false;
+      _view = el('leo-view');
+      Leo._view = _view;
+      _renderBuffer.width = _view.width;
+      _renderBuffer.height = _view.height;
+      _view.width = _view.width * Leo.view.scale;
+      _view.height = _view.height * Leo.view.scale;
+      _viewCtx = _view.getContext('2d');
+      _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = false;
       window.addEventListener('keydown', Leo.event._keydown);
       window.addEventListener('keyup', Leo.event._keyup);
       return webkitRequestAnimationFrame(Leo.cycle);
     },
     draw: function() {
-      var actor, frame, layer, _i, _j, _len, _len1, _ref, _ref1;
+      var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
 
-      _ctx.fillStyle = Leo.background.color;
-      _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
+      _renderBufferCtx.fillStyle = Leo.background.color;
+      _renderBufferCtx.fillRect(0, 0, _view.width, _view.height);
       _ref = Leo.layers;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         layer = _ref[_i];
@@ -43,17 +49,17 @@
       _ref1 = Leo.actors;
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         actor = _ref1[_j];
-        frame = actor.animations[actor.animName].frames[actor.animFrame];
-        _ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
+        actor.draw();
       }
-      Leo.layers[0].draw(3, 0, 5 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(4, 0, 6 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(5, 0, 7 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(6, 0, 8 * Leo.background.tileSize * Leo.view.scale, 6 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(3, 1, 5 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(4, 1, 6 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale);
-      Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale);
-      return Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale);
+      Leo.layers[0].draw(3, 0, 5 * Leo.background.tileSize, 6 * Leo.background.tileSize);
+      Leo.layers[0].draw(4, 0, 6 * Leo.background.tileSize, 6 * Leo.background.tileSize);
+      Leo.layers[0].draw(5, 0, 7 * Leo.background.tileSize, 6 * Leo.background.tileSize);
+      Leo.layers[0].draw(6, 0, 8 * Leo.background.tileSize, 6 * Leo.background.tileSize);
+      Leo.layers[0].draw(3, 1, 5 * Leo.background.tileSize, 7 * Leo.background.tileSize);
+      Leo.layers[0].draw(4, 1, 6 * Leo.background.tileSize, 7 * Leo.background.tileSize);
+      Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize, 7 * Leo.background.tileSize);
+      Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize, 7 * Leo.background.tileSize);
+      return _viewCtx.drawImage(_renderBuffer, 0, 0, _renderBuffer.width * Leo.view.scale, _renderBuffer.height * Leo.view.scale);
     },
     cycle: function() {
       var actor, cycleLengthMs, cycleLengthS, thisFrameTime, _i, _len, _ref;
@@ -277,6 +283,13 @@
       this.spriteImg = Leo.sprites.getImg(this.spritesheet);
     }
 
+    LeoActor.prototype.draw = function() {
+      var frame;
+
+      frame = this.animations[this.animName].frames[this.animFrame];
+      return _renderBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], ((this.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, ((this.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, frame[2], frame[3]);
+    };
+
     LeoActor.prototype.setAnimation = function(animName) {
       if (animName == null) {
         animName = '';
@@ -358,7 +371,7 @@
               _results2 = [];
               for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
                 tile = column[y];
-                _results2.push(this.drawTile(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale));
+                _results2.push(this.drawTile(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize));
               }
               return _results2;
             }).call(this));
@@ -373,7 +386,7 @@
       if (spriteX === -1 || spriteY === -1) {
         return;
       }
-      return _ctx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX, posY, this.tileSize * Leo.view.scale, this.tileSize * Leo.view.scale);
+      return _renderBufferCtx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX >> 0, posY >> 0, this.tileSize, this.tileSize);
     };
 
     return LeoLayer;
