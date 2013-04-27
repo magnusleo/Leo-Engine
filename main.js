@@ -31,29 +31,18 @@
       return webkitRequestAnimationFrame(Leo.cycle);
     },
     draw: function() {
-      var actor, chunk, column, frame, layer, tile, x, y, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _ref, _ref1, _ref2, _ref3;
+      var actor, frame, layer, _i, _j, _len, _len1, _ref, _ref1;
 
       _ctx.fillStyle = Leo.background.color;
       _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
       _ref = Leo.layers;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         layer = _ref[_i];
-        _ref1 = layer.chunks;
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          chunk = _ref1[_j];
-          _ref2 = chunk.tiles;
-          for (x = _k = 0, _len2 = _ref2.length; _k < _len2; x = ++_k) {
-            column = _ref2[x];
-            for (y = _l = 0, _len3 = column.length; _l < _len3; y = _l += 2) {
-              tile = column[y];
-              layer.draw(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale);
-            }
-          }
-        }
+        layer.draw();
       }
-      _ref3 = Leo.actors;
-      for (_m = 0, _len4 = _ref3.length; _m < _len4; _m++) {
-        actor = _ref3[_m];
+      _ref1 = Leo.actors;
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        actor = _ref1[_j];
         frame = actor.animations[actor.animName].frames[actor.animFrame];
         _ctx.drawImage(actor.spriteImg, frame[0], frame[1], frame[2], frame[3], ((actor.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) * Leo.view.scale, ((actor.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) * Leo.view.scale, frame[2] * Leo.view.scale, frame[3] * Leo.view.scale);
       }
@@ -67,7 +56,7 @@
       return Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize * Leo.view.scale, 7 * Leo.background.tileSize * Leo.view.scale);
     },
     cycle: function() {
-      var actor, animation, cycleLengthMs, cycleLengthS, maxFrame, thisFrameTime, _i, _len, _ref;
+      var actor, cycleLengthMs, cycleLengthS, thisFrameTime, _i, _len, _ref;
 
       thisFrameTime = Date.now();
       cycleLengthMs = thisFrameTime - _latestFrameTime;
@@ -76,23 +65,7 @@
       _ref = Leo.actors;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         actor = _ref[_i];
-        animation = actor.animations[actor.animName];
-        maxFrame = animation.frames.length - 1;
-        if (actor.animFrame > maxFrame) {
-          actor.animFrame = maxFrame;
-        }
-        actor.animFrameTimeLeft -= cycleLengthMs;
-        while (actor.animFrameTimeLeft < 0) {
-          actor.animFrame++;
-          if (actor.animFrame > maxFrame) {
-            if (animation.doLoop) {
-              actor.animFrame = 0;
-            } else {
-              actor.animFrame--;
-            }
-          }
-          actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft;
-        }
+        actor.advanceAnimation(cycleLengthMs);
         actor.posX += actor.speedX;
         actor.posY += actor.speedY;
       }
@@ -313,6 +286,30 @@
       return this.animName = animName;
     };
 
+    LeoActor.prototype.advanceAnimation = function(cycleLengthMs) {
+      var animation, maxFrame, _results;
+
+      animation = this.animations[this.animName];
+      maxFrame = animation.frames.length - 1;
+      if (this.animFrame > maxFrame) {
+        this.animFrame = maxFrame;
+      }
+      this.animFrameTimeLeft -= cycleLengthMs;
+      _results = [];
+      while (this.animFrameTimeLeft < 0) {
+        this.animFrame++;
+        if (this.animFrame > maxFrame) {
+          if (animation.doLoop) {
+            this.animFrame = 0;
+          } else {
+            this.animFrame--;
+          }
+        }
+        _results.push(this.animFrameTimeLeft = animation.frames[this.animFrame][6] + this.animFrameTimeLeft);
+      }
+      return _results;
+    };
+
     return LeoActor;
 
   })();
@@ -341,7 +338,38 @@
       this.spriteImg = Leo.sprites.getImg(this.spritesheet);
     }
 
-    LeoLayer.prototype.draw = function(spriteX, spriteY, posX, posY) {
+    LeoLayer.prototype.draw = function() {
+      var chunk, column, tile, x, y, _i, _len, _ref, _results;
+
+      _ref = this.chunks;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        chunk = _ref[_i];
+        _results.push((function() {
+          var _j, _len1, _ref1, _results1;
+
+          _ref1 = chunk.tiles;
+          _results1 = [];
+          for (x = _j = 0, _len1 = _ref1.length; _j < _len1; x = ++_j) {
+            column = _ref1[x];
+            _results1.push((function() {
+              var _k, _len2, _results2;
+
+              _results2 = [];
+              for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
+                tile = column[y];
+                _results2.push(this.drawTile(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale));
+              }
+              return _results2;
+            }).call(this));
+          }
+          return _results1;
+        }).call(this));
+      }
+      return _results;
+    };
+
+    LeoLayer.prototype.drawTile = function(spriteX, spriteY, posX, posY) {
       if (spriteX === -1 || spriteY === -1) {
         return;
       }

@@ -29,15 +29,8 @@ Leo = window.Leo =
 
         # Render layers
         for layer in Leo.layers
-            for chunk in layer.chunks
-                for column, x in chunk.tiles
-                    for tile, y in column by 2
-                        layer.draw(
-                            column[y],
-                            column[y + 1],
-                            (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
-                            ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
-                        )
+            layer.draw()
+
         # Render Actors
         for actor in Leo.actors
             frame = actor.animations[actor.animName].frames[actor.animFrame]
@@ -73,15 +66,7 @@ Leo = window.Leo =
         # Actors
         for actor in Leo.actors
             # Animation
-            animation = actor.animations[actor.animName]
-            maxFrame = animation.frames.length - 1
-            if actor.animFrame > maxFrame then actor.animFrame = maxFrame
-            actor.animFrameTimeLeft -= cycleLengthMs
-            while actor.animFrameTimeLeft < 0
-                actor.animFrame++
-                if actor.animFrame > maxFrame
-                    if animation.doLoop then actor.animFrame = 0 else actor.animFrame--
-                actor.animFrameTimeLeft = animation.frames[actor.animFrame][6] + actor.animFrameTimeLeft
+            actor.advanceAnimation cycleLengthMs
 
             # Position
             actor.posX += actor.speedX
@@ -93,10 +78,10 @@ Leo = window.Leo =
         webkitRequestAnimationFrame(Leo.cycle)
 
         Leo.cycleCallback()
-    cycleCallback: ->
+    cycleCallback: -> # Override Leo.cycleCallback with your own function
 
     view:
-        scale: 2
+        scale: 2 # #TODO: Resize a finished image instead of every pixel
         cameraPosX: 2.0 # Unit tile
         cameraPosY: 0.0
         cameraSpeedX: 0.0 # One tiles per second, positive is right
@@ -185,6 +170,17 @@ class LeoActor
         @animFrameTimeLeft = @animations[animName].frames[0][6]
         @animName = animName
 
+    advanceAnimation: (cycleLengthMs) ->
+        animation = @animations[@animName]
+        maxFrame = animation.frames.length - 1
+        if @animFrame > maxFrame then @animFrame = maxFrame
+        @animFrameTimeLeft -= cycleLengthMs
+        while @animFrameTimeLeft < 0
+            @animFrame++
+            if @animFrame > maxFrame
+                if animation.doLoop then @animFrame = 0 else @animFrame--
+            @animFrameTimeLeft = animation.frames[@animFrame][6] + @animFrameTimeLeft
+
 
 class LeoLayer
     constructor: (properties) ->
@@ -206,7 +202,18 @@ class LeoLayer
             @[key] = val
         @spriteImg = Leo.sprites.getImg @spritesheet
 
-    draw: (spriteX, spriteY, posX, posY) ->
+    draw: ->
+        for chunk in @chunks
+            for column, x in chunk.tiles
+                for tile, y in column by 2
+                    @drawTile(
+                        column[y],
+                        column[y + 1],
+                        (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * Leo.view.scale,
+                        ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize * Leo.view.scale,
+                    )
+
+    drawTile: (spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return
 
         _ctx.drawImage @spriteImg,
