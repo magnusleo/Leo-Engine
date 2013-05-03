@@ -240,6 +240,7 @@ class LeoLayer
                         (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize,
                         ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize,
                     )
+        return
 
     drawTile: (spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return

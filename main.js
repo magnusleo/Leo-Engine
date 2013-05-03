@@ -366,34 +366,20 @@
     }
 
     LeoLayer.prototype.draw = function() {
-      var chunk, column, tile, x, y, _i, _len, _ref, _results;
+      var chunk, column, tile, x, y, _i, _j, _k, _len, _len1, _len2, _ref, _ref1;
 
       _ref = this.chunks;
-      _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         chunk = _ref[_i];
-        _results.push((function() {
-          var _j, _len1, _ref1, _results1;
-
-          _ref1 = chunk.tiles;
-          _results1 = [];
-          for (x = _j = 0, _len1 = _ref1.length; _j < _len1; x = ++_j) {
-            column = _ref1[x];
-            _results1.push((function() {
-              var _k, _len2, _results2;
-
-              _results2 = [];
-              for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
-                tile = column[y];
-                _results2.push(this.drawTile(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize));
-              }
-              return _results2;
-            }).call(this));
+        _ref1 = chunk.tiles;
+        for (x = _j = 0, _len1 = _ref1.length; _j < _len1; x = ++_j) {
+          column = _ref1[x];
+          for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
+            tile = column[y];
+            this.drawTile(column[y], column[y + 1], (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize, ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize);
           }
-          return _results1;
-        }).call(this));
+        }
       }
-      return _results;
     };
 
     LeoLayer.prototype.drawTile = function(spriteX, spriteY, posX, posY) {
