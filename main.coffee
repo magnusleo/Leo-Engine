@@ -8,6 +8,10 @@ _renderBuffer = document.createElement 'canvas'
 _renderBufferCtx = _renderBuffer.getContext '2d'
 _latestFrameTime = Date.now()
 _pressedKeys = []
+_camX = 0
+_camY = 0
+_camW = 0
+_camH = 0
 
 Leo = window.Leo =
     init: ->
@@ -30,6 +34,12 @@ Leo = window.Leo =
         webkitRequestAnimationFrame(Leo.cycle)
 
     draw: ->
+        # Calculate camera pixel values
+        _camX = Leo.view.cameraPosX * Leo.background.tileSize
+        _camY = Leo.view.cameraPosY * Leo.background.tileSize
+        _camW = Leo.view.cameraWidth * Leo.background.tileSize
+        _camH = Leo.view.cameraHeight * Leo.background.tileSize
+
         # Background color
         _renderBufferCtx.fillStyle = Leo.background.color
         _renderBufferCtx.fillRect 0, 0, _view.width, _view.height
@@ -90,6 +100,8 @@ Leo = window.Leo =
         cameraPosY: 0.0
         cameraSpeedX: 0.0 # One tiles per second, positive is right
         cameraSpeedY: 0.0
+        cameraWidth: 30
+        cameraHeight: 17
     
     background:
         tileSize: 16
@@ -231,6 +243,13 @@ class LeoLayer
 
     drawTile: (spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return
+
+        # Don't draw tiles out of view
+        if posX < -Leo.background.tileSize or
+        posX > Leo.background.tileSize + _camW or
+        posY < -Leo.background.tileSize or
+        posY > Leo.background.tileSize + _camH
+            return
 
         _renderBufferCtx.drawImage @spriteImg,
             spriteX * @tileSize,

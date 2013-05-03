@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Leo, LeoActor, LeoLayer, el, _latestFrameTime, _pressedKeys, _renderBuffer, _renderBufferCtx, _view, _viewCtx;
+  var Leo, LeoActor, LeoLayer, el, _camH, _camW, _camX, _camY, _latestFrameTime, _pressedKeys, _renderBuffer, _renderBufferCtx, _view, _viewCtx;
 
   el = function(id) {
     return document.getElementById(id);
@@ -21,6 +21,14 @@
   _latestFrameTime = Date.now();
 
   _pressedKeys = [];
+
+  _camX = 0;
+
+  _camY = 0;
+
+  _camW = 0;
+
+  _camH = 0;
 
   Leo = window.Leo = {
     init: function() {
@@ -39,6 +47,10 @@
     draw: function() {
       var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
 
+      _camX = Leo.view.cameraPosX * Leo.background.tileSize;
+      _camY = Leo.view.cameraPosY * Leo.background.tileSize;
+      _camW = Leo.view.cameraWidth * Leo.background.tileSize;
+      _camH = Leo.view.cameraHeight * Leo.background.tileSize;
       _renderBufferCtx.fillStyle = Leo.background.color;
       _renderBufferCtx.fillRect(0, 0, _view.width, _view.height);
       _ref = Leo.layers;
@@ -86,7 +98,9 @@
       cameraPosX: 2.0,
       cameraPosY: 0.0,
       cameraSpeedX: 0.0,
-      cameraSpeedY: 0.0
+      cameraSpeedY: 0.0,
+      cameraWidth: 30,
+      cameraHeight: 17
     },
     background: {
       tileSize: 16,
@@ -384,6 +398,9 @@
 
     LeoLayer.prototype.drawTile = function(spriteX, spriteY, posX, posY) {
       if (spriteX === -1 || spriteY === -1) {
+        return;
+      }
+      if (posX < -Leo.background.tileSize || posX > Leo.background.tileSize + _camW || posY < -Leo.background.tileSize || posY > Leo.background.tileSize + _camH) {
         return;
       }
       return _renderBufferCtx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX >> 0, posY >> 0, this.tileSize, this.tileSize);
