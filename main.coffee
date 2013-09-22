@@ -4,8 +4,8 @@
 el = (id) -> document.getElementById id
 _view = null
 _viewCtx = null
-_renderBuffer = document.createElement 'canvas'
-_renderBufferCtx = _renderBuffer.getContext '2d'
+_frameBuffer = document.createElement 'canvas'
+_frameBufferCtx = _frameBuffer.getContext '2d'
 _latestFrameTime = Date.now()
 _pressedKeys = []
 _camX = 0
@@ -18,8 +18,8 @@ Leo = window.Leo =
         _view = el('leo-view')
         Leo._view = _view
 
-        _renderBuffer.width  = _view.width
-        _renderBuffer.height = _view.height
+        _frameBuffer.width  = _view.width
+        _frameBuffer.height = _view.height
 
         _view.width          = _view.width  * Leo.view.scale
         _view.height         = _view.height * Leo.view.scale
@@ -41,8 +41,8 @@ Leo = window.Leo =
         _camH = Leo.view.cameraHeight * Leo.background.tileSize
 
         # Background color
-        _renderBufferCtx.fillStyle = Leo.background.color
-        _renderBufferCtx.fillRect 0, 0, _view.width, _view.height
+        _frameBufferCtx.fillStyle = Leo.background.color
+        _frameBufferCtx.fillRect 0, 0, _view.width, _view.height
 
         # Render layers
         for layer in Leo.layers
@@ -62,11 +62,11 @@ Leo = window.Leo =
         Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize, 7 * Leo.background.tileSize)
         Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize, 7 * Leo.background.tileSize)
 
-        _viewCtx.drawImage _renderBuffer,
+        _viewCtx.drawImage _frameBuffer,
             0,
             0,
-            _renderBuffer.width * Leo.view.scale,
-            _renderBuffer.height * Leo.view.scale
+            _frameBuffer.width * Leo.view.scale,
+            _frameBuffer.height * Leo.view.scale
 
     cycle: ->
         # Frame timing
@@ -155,7 +155,7 @@ Leo = window.Leo =
 class LeoActor
     constructor: (properties) ->
         # Defaults
-        @spritesheet = "" # Name of the spritesheet file
+        @spritesheet = '' # Name of the spritesheet file
         @animations =
             example:
                 frames: [] # [{int x (pixels), y, w, h, offsetX, offsetY, int duration (milliseconds)}, ...]
@@ -170,7 +170,7 @@ class LeoActor
                 completeFallback: -> # Function at animation complete (or loop)
         @animFrameTimeLeft = 0 # Time left on current animation frame
         @animFrame = 0 # Current animation frame
-        @animName = "" # Name of the current animation running
+        @animName = '' # Name of the current animation running
         @posX = 0
         @posY = 0
         @speedX = 0
@@ -183,15 +183,15 @@ class LeoActor
 
     draw: ->
         frame = @animations[@animName].frames[@animFrame]
-        _renderBufferCtx.drawImage @spriteImg,
-            frame[0], #Source x
-            frame[1], #Source y
-            frame[2], #Source width
-            frame[3], #Source height
+        _frameBufferCtx.drawImage @spriteImg,
+            frame[0], # Source x
+            frame[1], # Source y
+            frame[2], # Source width
+            frame[3], # Source height
             ((@posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, # Position + frame offset X
             ((@posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, # Position + frame offset Y
-            frame[2], #Destination width
-            frame[3], #Destination height
+            frame[2], # Destination width
+            frame[3], # Destination height
 
     setAnimation: (animName = '') ->
         @animFrame = 0
@@ -213,7 +213,7 @@ class LeoActor
 class LeoLayer
     constructor: (properties) ->
         # Defaults
-        @spritesheet = "" # Name of the spritesheet file
+        @spritesheet = '' # Name of the spritesheet file
         @tileSize = 16 # Pixel size of one tile
         @chunks = [
             chunkOffsetX: 0
@@ -230,55 +230,77 @@ class LeoLayer
             @[key] = val
         @spriteImg = Leo.sprites.getImg @spritesheet
 
+        for chunk in @chunks
+            chunk.drawBuffer = document.createElement 'canvas'
+            chunk.drawBufferCtx = chunk.drawBuffer.getContext '2d'
+            chunk.drawBufferDirty = true
+            chunk.drawBuffer.width = chunk.tiles.length * @tileSize
+            chunk.drawBuffer.height = chunk.tiles[0].length / 2 * @tileSize
+
+
     draw: ->
         for chunk in @chunks
-            for column, x in chunk.tiles
-                for tile, y in column by 2
-                    @drawTile(
-                        column[y],
-                        column[y + 1],
-                        (x + chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize,
-                        ((y >> 1) + chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize,
-                    )
-        return
+            posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize) >> 0
+            posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
 
-    drawTile: (spriteX, spriteY, posX, posY) ->
+            # Don't draw chunks out of view
+            if posX < -chunk.drawBuffer.width or
+            posX > _camW or
+            posY < -chunk.drawBuffer.height or
+            posY > chunk.drawBuffer.height + _camH
+                continue
+
+            if chunk.drawBufferDirty
+                # Redraw chunk
+                for column, x in chunk.tiles
+                    for tile, y in column by 2
+                        @drawTile chunk.drawBufferCtx,
+                            column[y],
+                            column[y + 1],
+                            x * Leo.background.tileSize,
+                            ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize,
+                chunk.drawBufferDirty = false
+
+            _frameBufferCtx.drawImage chunk.drawBuffer,
+                0, # Source X
+                0, # Source Y
+                chunk.drawBuffer.width, # Source width
+                chunk.drawBuffer.height, # Source height
+                posX, # Destionation X
+                posY, # Destionation Y
+                chunk.drawBuffer.width, # Destination width
+                chunk.drawBuffer.height, # Destination height
+
+    drawTile: (ctx, spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return
 
-        # Don't draw tiles out of view
-        if posX < -Leo.background.tileSize or
-        posX > Leo.background.tileSize + _camW or
-        posY < -Leo.background.tileSize or
-        posY > Leo.background.tileSize + _camH
-            return
-
-        _renderBufferCtx.drawImage @spriteImg,
+        ctx.drawImage @spriteImg,
             spriteX * @tileSize,
             spriteY * @tileSize,
-            @tileSize, #Source width
-            @tileSize, #Source height
+            @tileSize, # Source width
+            @tileSize, # Source height
             posX >> 0,
             posY >> 0,
-            @tileSize, #Destination width
-            @tileSize, #Destination height
+            @tileSize, # Destination width
+            @tileSize, # Destination height
 
 
 
 window.onload = ->
     Leo.init()
     Leo.actors.push new LeoActor(
-        spritesheet: "sprite-olle.png"
+        spritesheet: 'sprite-olle.png'
         animations:
             runningLeft:
                 frames: [
                     [19,33, 30,32, -4,0, 192]
-                    [49,33, 13,32,   4,0, 192]
+                    [49,33, 13,32,  4,0, 192]
                 ]
                 doLoop: true
             runningRight:
                 frames: [
                     [19,0, 30,32, -8,0, 192]
-                    [49,0, 13,32,   1,0, 192]
+                    [49,0, 13,32,  1,0, 192]
                 ]
                 doLoop: true
             standingLeft:
@@ -291,7 +313,7 @@ window.onload = ->
                     [0,0, 19,32, -1,0, 1000]
                 ]
                 doLoop: false
-        animName: "standingRight"
+        animName: 'standingRight'
         posX: 6
         posY: 12
     )
@@ -301,20 +323,20 @@ window.onload = ->
         switch Leo.util.KEY_CODES[e.keyCode]
             when 'left'
                 Leo.player.speedX = -0.15
-                Leo.player.setAnimation "runningLeft"
+                Leo.player.setAnimation 'runningLeft'
             when 'right'
                 Leo.player.speedX = 0.15
-                Leo.player.setAnimation "runningRight"
+                Leo.player.setAnimation 'runningRight'
             when 'r'
                 window.location.reload()
 
     Leo.event.keyup = (e) ->
         switch Leo.util.KEY_CODES[e.keyCode]
             when 'left'
-                Leo.player.setAnimation "standingLeft"
+                Leo.player.setAnimation 'standingLeft'
                 Leo.player.speedX = 0
             when 'right'
-                Leo.player.setAnimation "standingRight"
+                Leo.player.setAnimation 'standingRight'
                 Leo.player.speedX = 0
 
     Leo.cycleCallback = ->
@@ -333,7 +355,7 @@ window.onload = ->
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
-                [2,0, 1,2, 1,3, 1,3]
+                [4,0, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
@@ -371,7 +393,7 @@ window.onload = ->
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
-                [2,0, 1,2, 1,3, 1,3]
+                [4,0, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
