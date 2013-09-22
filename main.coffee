@@ -52,16 +52,6 @@ Leo = window.Leo =
         for actor in Leo.actors
             actor.draw()
 
-        # Cloud #Debug
-        Leo.layers[0].draw(3, 0, 5 * Leo.background.tileSize, 6 * Leo.background.tileSize)
-        Leo.layers[0].draw(4, 0, 6 * Leo.background.tileSize, 6 * Leo.background.tileSize)
-        Leo.layers[0].draw(5, 0, 7 * Leo.background.tileSize, 6 * Leo.background.tileSize)
-        Leo.layers[0].draw(6, 0, 8 * Leo.background.tileSize, 6 * Leo.background.tileSize)
-        Leo.layers[0].draw(3, 1, 5 * Leo.background.tileSize, 7 * Leo.background.tileSize)
-        Leo.layers[0].draw(4, 1, 6 * Leo.background.tileSize, 7 * Leo.background.tileSize)
-        Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize, 7 * Leo.background.tileSize)
-        Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize, 7 * Leo.background.tileSize)
-
         _viewCtx.drawImage _frameBuffer,
             0,
             0,
@@ -223,6 +213,7 @@ class LeoLayer
             tileOffsetY: 0 # Number of tiles offset in Y
             tiles:[] # Tile sprite positions [x1,y1, ... xn, yn] -1 is nothing/transparent
         ]
+        @isLooping = false
         @parallax = 1.0
 
         # User defined properties
@@ -230,46 +221,63 @@ class LeoLayer
             @[key] = val
         @spriteImg = Leo.sprites.getImg @spritesheet
 
+        @layerNumTilesX = 0
         for chunk in @chunks
             chunk.drawBuffer = document.createElement 'canvas'
             chunk.drawBufferCtx = chunk.drawBuffer.getContext '2d'
             chunk.drawBufferDirty = true
             chunk.drawBuffer.width = chunk.tiles.length * @tileSize
             chunk.drawBuffer.height = chunk.tiles[0].length / 2 * @tileSize
+            chunk.tileOffsetXPx = chunk.tileOffsetX * @tileSize
+            @layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX
 
 
     draw: ->
-        for chunk in @chunks
-            posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize) >> 0
-            posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
+        if @isLooping
+            chunk = @chunks[0]
+            posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
+            multiplier = ((Leo.view.cameraPosX / @layerNumTilesX * @parallax) >> 0) - 1
+            posX += @layerNumTilesX * Leo.background.tileSize * multiplier
+            while posX < _camW
+                for chunk in @chunks
+                    posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
+                    @drawChunk(chunk, posX, posY)
+                    posX += chunk.drawBuffer.width + chunk.tileOffsetXPx
+        else
+            for chunk in @chunks
+                posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
+                posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
+                @drawChunk(chunk, posX, posY)
+        return
 
-            # Don't draw chunks out of view
-            if posX < -chunk.drawBuffer.width or
-            posX > _camW or
-            posY < -chunk.drawBuffer.height or
-            posY > chunk.drawBuffer.height + _camH
-                continue
 
-            if chunk.drawBufferDirty
-                # Redraw chunk
-                for column, x in chunk.tiles
-                    for tile, y in column by 2
-                        @drawTile chunk.drawBufferCtx,
-                            column[y],
-                            column[y + 1],
-                            x * Leo.background.tileSize,
-                            ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize,
-                chunk.drawBufferDirty = false
+    drawChunk: (chunk, posX, posY) ->
+        # Don't draw chunks out of view
+        if posX < -chunk.drawBuffer.width or posX > _camW or
+        posY < -chunk.drawBuffer.height or posY > _camH
+            return
 
-            _frameBufferCtx.drawImage chunk.drawBuffer,
-                0, # Source X
-                0, # Source Y
-                chunk.drawBuffer.width, # Source width
-                chunk.drawBuffer.height, # Source height
-                posX, # Destionation X
-                posY, # Destionation Y
-                chunk.drawBuffer.width, # Destination width
-                chunk.drawBuffer.height, # Destination height
+        if chunk.drawBufferDirty
+            # Redraw chunk
+            for column, x in chunk.tiles
+                for tile, y in column by 2
+                    @drawTile chunk.drawBufferCtx,
+                        column[y],
+                        column[y + 1],
+                        x * Leo.background.tileSize,
+                        ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize,
+            chunk.drawBufferDirty = false
+
+        _frameBufferCtx.drawImage chunk.drawBuffer,
+            0, # Source X
+            0, # Source Y
+            chunk.drawBuffer.width, # Source width
+            chunk.drawBuffer.height, # Source height
+            posX, # Destionation X
+            posY, # Destionation Y
+            chunk.drawBuffer.width, # Destination width
+            chunk.drawBuffer.height, # Destination height
+
 
     drawTile: (ctx, spriteX, spriteY, posX, posY) ->
         if spriteX == -1 or spriteY == -1 then return
@@ -343,6 +351,73 @@ window.onload = ->
         Leo.view.cameraPosX = Leo.player.posX - 15
 
     Leo.layers.push new LeoLayer(
+        name: 'mountains'
+        spritesheet: 'sprite-background.png'
+        isLooping: true
+        parallax: 0.5
+        chunks: [
+            chunkOffsetX: 0
+            chunkOffsetY: 0
+            colBoxes: []
+            tileOffsetX: 0
+            tileOffsetY: 10
+            tiles:[
+                [-1,-1, 4,1,   4,2,   4,3,   4,3, 4,4,  7,0]
+                [5,0,   5,1,   5,2,   5,3,   5,4, 4,4,  8,0]
+                [6,0,   6,1,   6,2,   6,3,   6,3, 4,4,  9,0]
+                [-1,-1, 7,1,   7,2,   7,3,   7,4, 4,4, 10,0]
+                [-1,-1, -1,-1, 8,2,   8,3,   8,4, 4,4, 11,0]
+                [-1,-1, -1,-1, -1,-1, 9,3,   9,4, 4,4,  7,0]
+                [-1,-1, -1,-1, 10,2,  10,3, 10,4, 4,4,  8,0]
+                [-1,-1, 11,1,  11,2,  11,3, 11,4, 4,4,  9,0]
+                [-1,-1, 12,1,  12,2,  12,3, 12,4, 4,4, 10,0]
+                [-1,-1, -1,-1, 13,2,  13,3, 13,4, 4,4, 11,0]
+            ]
+        ]
+    )
+
+    Leo.layers.push new LeoLayer(
+        name: 'cloud 1'
+        spritesheet: 'sprite-background.png'
+        isLooping: true
+        parallax: 0.21
+        chunks: [
+            chunkOffsetX: 50
+            chunkOffsetY: 0
+            colBoxes: []
+            tileOffsetX: 30
+            tileOffsetY: 3
+            tiles:[
+                [0,0, 0,1]
+                [1,0, 1,1]
+                [2,0, 2,1]
+                [3,0, 3,1]
+            ]
+        ]
+    )
+
+    Leo.layers.push new LeoLayer(
+        name: 'cloud 2'
+        spritesheet: 'sprite-background.png'
+        isLooping: true
+        parallax: 0.2
+        chunks: [
+            chunkOffsetX: 0
+            chunkOffsetY: 0
+            colBoxes: []
+            tileOffsetX: 29
+            tileOffsetY: 5
+            tiles:[
+                [0,0, 0,1]
+                [1,0, 1,1]
+                [2,0, 2,1]
+                [3,0, 3,1]
+            ]
+        ]
+    )
+
+    Leo.layers.push new LeoLayer(
+        name: 'ground'
         spritesheet: 'sprite-background.png'
         chunks: [
             chunkOffsetX: 0

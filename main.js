@@ -63,14 +63,6 @@
         actor = _ref1[_j];
         actor.draw();
       }
-      Leo.layers[0].draw(3, 0, 5 * Leo.background.tileSize, 6 * Leo.background.tileSize);
-      Leo.layers[0].draw(4, 0, 6 * Leo.background.tileSize, 6 * Leo.background.tileSize);
-      Leo.layers[0].draw(5, 0, 7 * Leo.background.tileSize, 6 * Leo.background.tileSize);
-      Leo.layers[0].draw(6, 0, 8 * Leo.background.tileSize, 6 * Leo.background.tileSize);
-      Leo.layers[0].draw(3, 1, 5 * Leo.background.tileSize, 7 * Leo.background.tileSize);
-      Leo.layers[0].draw(4, 1, 6 * Leo.background.tileSize, 7 * Leo.background.tileSize);
-      Leo.layers[0].draw(5, 1, 7 * Leo.background.tileSize, 7 * Leo.background.tileSize);
-      Leo.layers[0].draw(6, 1, 8 * Leo.background.tileSize, 7 * Leo.background.tileSize);
       return _viewCtx.drawImage(_frameBuffer, 0, 0, _frameBuffer.width * Leo.view.scale, _frameBuffer.height * Leo.view.scale);
     },
     cycle: function() {
@@ -357,12 +349,14 @@
           tiles: []
         }
       ];
+      this.isLooping = false;
       this.parallax = 1.0;
       for (key in properties) {
         val = properties[key];
         this[key] = val;
       }
       this.spriteImg = Leo.sprites.getImg(this.spritesheet);
+      this.layerNumTilesX = 0;
       _ref = this.chunks;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         chunk = _ref[_i];
@@ -371,35 +365,57 @@
         chunk.drawBufferDirty = true;
         chunk.drawBuffer.width = chunk.tiles.length * this.tileSize;
         chunk.drawBuffer.height = chunk.tiles[0].length / 2 * this.tileSize;
+        chunk.tileOffsetXPx = chunk.tileOffsetX * this.tileSize;
+        this.layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX;
       }
     }
 
     LeoLayer.prototype.draw = function() {
-      var chunk, column, posX, posY, tile, x, y, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _results;
+      var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref, _ref1;
 
-      _ref = this.chunks;
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        chunk = _ref[_i];
-        posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize) >> 0;
-        posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
-        if (posX < -chunk.drawBuffer.width || posX > _camW || posY < -chunk.drawBuffer.height || posY > chunk.drawBuffer.height + _camH) {
-          continue;
-        }
-        if (chunk.drawBufferDirty) {
-          _ref1 = chunk.tiles;
-          for (x = _j = 0, _len1 = _ref1.length; _j < _len1; x = ++_j) {
-            column = _ref1[x];
-            for (y = _k = 0, _len2 = column.length; _k < _len2; y = _k += 2) {
-              tile = column[y];
-              this.drawTile(chunk.drawBufferCtx, column[y], column[y + 1], x * Leo.background.tileSize, ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize);
-            }
+      if (this.isLooping) {
+        chunk = this.chunks[0];
+        posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * this.parallax) >> 0;
+        multiplier = ((Leo.view.cameraPosX / this.layerNumTilesX * this.parallax) >> 0) - 1;
+        posX += this.layerNumTilesX * Leo.background.tileSize * multiplier;
+        while (posX < _camW) {
+          _ref = this.chunks;
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            chunk = _ref[_i];
+            posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
+            this.drawChunk(chunk, posX, posY);
+            posX += chunk.drawBuffer.width + chunk.tileOffsetXPx;
           }
-          chunk.drawBufferDirty = false;
         }
-        _results.push(_frameBufferCtx.drawImage(chunk.drawBuffer, 0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height, posX, posY, chunk.drawBuffer.width, chunk.drawBuffer.height));
+      } else {
+        _ref1 = this.chunks;
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          chunk = _ref1[_j];
+          posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * this.parallax) >> 0;
+          posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
+          this.drawChunk(chunk, posX, posY);
+        }
       }
-      return _results;
+    };
+
+    LeoLayer.prototype.drawChunk = function(chunk, posX, posY) {
+      var column, tile, x, y, _i, _j, _len, _len1, _ref;
+
+      if (posX < -chunk.drawBuffer.width || posX > _camW || posY < -chunk.drawBuffer.height || posY > _camH) {
+        return;
+      }
+      if (chunk.drawBufferDirty) {
+        _ref = chunk.tiles;
+        for (x = _i = 0, _len = _ref.length; _i < _len; x = ++_i) {
+          column = _ref[x];
+          for (y = _j = 0, _len1 = column.length; _j < _len1; y = _j += 2) {
+            tile = column[y];
+            this.drawTile(chunk.drawBufferCtx, column[y], column[y + 1], x * Leo.background.tileSize, ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize);
+          }
+        }
+        chunk.drawBufferDirty = false;
+      }
+      return _frameBufferCtx.drawImage(chunk.drawBuffer, 0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height, posX, posY, chunk.drawBuffer.width, chunk.drawBuffer.height);
     };
 
     LeoLayer.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
@@ -465,7 +481,56 @@
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
     };
+    Leo.layers.push(new LeoLayer({
+      name: 'mountains',
+      spritesheet: 'sprite-background.png',
+      isLooping: true,
+      parallax: 0.5,
+      chunks: [
+        {
+          chunkOffsetX: 0,
+          chunkOffsetY: 0,
+          colBoxes: [],
+          tileOffsetX: 0,
+          tileOffsetY: 10,
+          tiles: [[-1, -1, 4, 1, 4, 2, 4, 3, 4, 3, 4, 4, 7, 0], [5, 0, 5, 1, 5, 2, 5, 3, 5, 4, 4, 4, 8, 0], [6, 0, 6, 1, 6, 2, 6, 3, 6, 3, 4, 4, 9, 0], [-1, -1, 7, 1, 7, 2, 7, 3, 7, 4, 4, 4, 10, 0], [-1, -1, -1, -1, 8, 2, 8, 3, 8, 4, 4, 4, 11, 0], [-1, -1, -1, -1, -1, -1, 9, 3, 9, 4, 4, 4, 7, 0], [-1, -1, -1, -1, 10, 2, 10, 3, 10, 4, 4, 4, 8, 0], [-1, -1, 11, 1, 11, 2, 11, 3, 11, 4, 4, 4, 9, 0], [-1, -1, 12, 1, 12, 2, 12, 3, 12, 4, 4, 4, 10, 0], [-1, -1, -1, -1, 13, 2, 13, 3, 13, 4, 4, 4, 11, 0]]
+        }
+      ]
+    }));
+    Leo.layers.push(new LeoLayer({
+      name: 'cloud 1',
+      spritesheet: 'sprite-background.png',
+      isLooping: true,
+      parallax: 0.21,
+      chunks: [
+        {
+          chunkOffsetX: 50,
+          chunkOffsetY: 0,
+          colBoxes: [],
+          tileOffsetX: 30,
+          tileOffsetY: 3,
+          tiles: [[0, 0, 0, 1], [1, 0, 1, 1], [2, 0, 2, 1], [3, 0, 3, 1]]
+        }
+      ]
+    }));
+    Leo.layers.push(new LeoLayer({
+      name: 'cloud 2',
+      spritesheet: 'sprite-background.png',
+      isLooping: true,
+      parallax: 0.2,
+      chunks: [
+        {
+          chunkOffsetX: 0,
+          chunkOffsetY: 0,
+          colBoxes: [],
+          tileOffsetX: 29,
+          tileOffsetY: 5,
+          tiles: [[0, 0, 0, 1], [1, 0, 1, 1], [2, 0, 2, 1], [3, 0, 3, 1]]
+        }
+      ]
+    }));
     return Leo.layers.push(new LeoLayer({
+      name: 'ground',
       spritesheet: 'sprite-background.png',
       chunks: [
         {
