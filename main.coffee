@@ -92,7 +92,7 @@ Leo = window.Leo =
         cameraSpeedY: 0.0
         cameraWidth: 30
         cameraHeight: 17
-    
+
     background:
         tileSize: 16
         color: '#6ec0ff'
@@ -220,6 +220,13 @@ class LeoLayer
         for key, val of properties
             @[key] = val
         @spriteImg = Leo.sprites.getImg @spritesheet
+        layer = this
+        @spriteImg.addEventListener 'load', ->
+            if not layer.chunks
+                return
+            for chunk in layer.chunks
+                chunk.drawBufferDirty = true
+            return
 
         @layerNumTilesX = 0
         for chunk in @chunks

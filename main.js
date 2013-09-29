@@ -335,7 +335,7 @@
 
   LeoLayer = (function() {
     function LeoLayer(properties) {
-      var chunk, key, val, _i, _len, _ref;
+      var chunk, key, layer, val, _i, _len, _ref;
 
       this.spritesheet = '';
       this.tileSize = 16;
@@ -356,6 +356,19 @@
         this[key] = val;
       }
       this.spriteImg = Leo.sprites.getImg(this.spritesheet);
+      layer = this;
+      this.spriteImg.addEventListener('load', function() {
+        var chunk, _i, _len, _ref;
+
+        if (!layer.chunks) {
+          return;
+        }
+        _ref = layer.chunks;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          chunk = _ref[_i];
+          chunk.drawBufferDirty = true;
+        }
+      });
       this.layerNumTilesX = 0;
       _ref = this.chunks;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
