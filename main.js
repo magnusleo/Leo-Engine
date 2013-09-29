@@ -39,10 +39,10 @@
       _view.width = _view.width * Leo.view.scale;
       _view.height = _view.height * Leo.view.scale;
       _viewCtx = _view.getContext('2d');
-      _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = false;
+      _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false;
       window.addEventListener('keydown', Leo.event._keydown);
       window.addEventListener('keyup', Leo.event._keyup);
-      return webkitRequestAnimationFrame(Leo.cycle);
+      return window.requestAnimationFrame(Leo.cycle);
     },
     draw: function() {
       var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
@@ -81,7 +81,7 @@
       }
       Leo.draw();
       _latestFrameTime = thisFrameTime;
-      webkitRequestAnimationFrame(Leo.cycle);
+      window.requestAnimationFrame(Leo.cycle);
       return Leo.cycleCallback();
     },
     cycleCallback: function() {},

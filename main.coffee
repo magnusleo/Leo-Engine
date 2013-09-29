@@ -25,13 +25,13 @@ Leo = window.Leo =
         _view.height         = _view.height * Leo.view.scale
 
         _viewCtx = _view.getContext('2d')
-        _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = false
+        _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false
 
 
         window.addEventListener 'keydown', Leo.event._keydown
         window.addEventListener 'keyup',   Leo.event._keyup
 
-        webkitRequestAnimationFrame(Leo.cycle)
+        window.requestAnimationFrame(Leo.cycle)
 
     draw: ->
         # Calculate camera pixel values
@@ -79,7 +79,7 @@ Leo = window.Leo =
         # Finish the frame
         Leo.draw()
         _latestFrameTime = thisFrameTime
-        webkitRequestAnimationFrame(Leo.cycle)
+        window.requestAnimationFrame(Leo.cycle)
 
         Leo.cycleCallback()
     cycleCallback: -> # Override Leo.cycleCallback with your own function
