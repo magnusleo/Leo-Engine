@@ -4,7 +4,9 @@
 
 
 (function() {
-  var Actor, Layer, Leo, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx;
+  var Actor, Layer, Leo, Player, PlayerState, PlayerStateGround, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   Leo = window.Leo = {};
 
@@ -346,6 +348,139 @@
 
   })();
 
+  Leo.Player = Player = (function(_super) {
+    __extends(Player, _super);
+
+    function Player(data) {
+      Player.__super__.constructor.call(this, data);
+      Leo.actors.push(this);
+      this.state = new PlayerStateStanding(this);
+    }
+
+    Player.prototype.setState = function(state) {
+      if (this.state === state) {
+        return;
+      }
+      return this.state = new state(this);
+    };
+
+    Player.prototype.handleInput = function(e) {
+      return this.state.handleInput(e);
+    };
+
+    return Player;
+
+  })(Actor);
+
+  Leo.PlayerState = PlayerState = (function() {
+    function PlayerState(parent) {
+      this.parent = parent;
+    }
+
+    PlayerState.prototype.handleInput = function(e) {
+      var key;
+
+      key = Leo.util.KEY_CODES;
+      switch (e.keyCode) {
+        case key.LEFT:
+          return this.parent.direction = -1;
+        case key.RIGHT:
+          return this.parent.direction = 1;
+      }
+    };
+
+    return PlayerState;
+
+  })();
+
+  Leo.PlayerStateGround = PlayerStateGround = (function(_super) {
+    __extends(PlayerStateGround, _super);
+
+    function PlayerStateGround(data) {
+      PlayerStateGround.__super__.constructor.call(this, data);
+    }
+
+    PlayerStateGround.prototype.handleInput = function(e) {
+      return PlayerStateGround.__super__.handleInput.call(this, e);
+    };
+
+    return PlayerStateGround;
+
+  })(PlayerState);
+
+  Leo.PlayerStateStanding = PlayerStateStanding = (function(_super) {
+    __extends(PlayerStateStanding, _super);
+
+    function PlayerStateStanding(data) {
+      PlayerStateStanding.__super__.constructor.call(this, data);
+      this.parent.speedX = 0;
+      if (this.parent.direction > 0) {
+        this.parent.setAnimation('standingRight');
+      } else {
+        this.parent.setAnimation('standingLeft');
+      }
+    }
+
+    PlayerStateStanding.prototype.handleInput = function(e) {
+      var key;
+
+      PlayerStateStanding.__super__.handleInput.call(this, e);
+      key = Leo.util.KEY_CODES;
+      if (e.type !== 'keydown') {
+        return;
+      }
+      switch (e.keyCode) {
+        case key.LEFT:
+        case key.RIGHT:
+          return this.parent.setState(PlayerStateRunning);
+      }
+    };
+
+    return PlayerStateStanding;
+
+  })(PlayerStateGround);
+
+  Leo.PlayerStateRunning = PlayerStateRunning = (function(_super) {
+    __extends(PlayerStateRunning, _super);
+
+    function PlayerStateRunning(data) {
+      PlayerStateRunning.__super__.constructor.call(this, data);
+      this.parent.speedX = 0.15 * this.parent.direction;
+      if (this.parent.direction > 0) {
+        this.parent.setAnimation('runningRight');
+      } else {
+        this.parent.setAnimation('runningLeft');
+      }
+    }
+
+    PlayerStateRunning.prototype.handleInput = function(e) {
+      var key;
+
+      PlayerStateRunning.__super__.handleInput.call(this, e);
+      key = Leo.util.KEY_CODES;
+      if (e.type === 'keydown') {
+        switch (e.keyCode) {
+          case key.LEFT:
+          case key.RIGHT:
+            if (this.parent.direction > 0) {
+              return this.parent.setAnimation('runningRight');
+            } else {
+              return this.parent.setAnimation('runningLeft');
+            }
+        }
+      } else if (e.type === 'keyup') {
+        switch (e.keyCode) {
+          case key.LEFT:
+          case key.RIGHT:
+            return this.parent.setState(PlayerStateStanding);
+        }
+      }
+    };
+
+    return PlayerStateRunning;
+
+  })(PlayerStateGround);
+
   Leo.Layer = Layer = (function() {
     function Layer(properties) {
       var chunk, key, layer, val, _i, _len, _ref;
@@ -457,7 +592,21 @@
 
   window.onload = function() {
     Leo.core.init();
-    Leo.actors.push(new Leo.Actor({
+    Leo.event.keydown = function(e) {
+      var key;
+
+      key = Leo.util.KEY_CODES;
+      switch (e.keyCode) {
+        case key.R:
+          return window.location.reload();
+        default:
+          return Leo.player.handleInput(e);
+      }
+    };
+    Leo.event.keyup = function(e) {
+      return Leo.player.handleInput(e);
+    };
+    Leo.player = new Leo.Player({
       spritesheet: 'sprite-olle.png',
       animations: {
         runningLeft: {
@@ -480,36 +629,7 @@
       animName: 'standingRight',
       posX: 6,
       posY: 12
-    }));
-    Leo.player = Leo.actors[Leo.actors.length - 1];
-    Leo.event.keydown = function(e) {
-      var key;
-
-      key = Leo.util.KEY_CODES;
-      switch (e.keyCode) {
-        case key.LEFT:
-          Leo.player.speedX = -0.15;
-          return Leo.player.setAnimation('runningLeft');
-        case key.RIGHT:
-          Leo.player.speedX = 0.15;
-          return Leo.player.setAnimation('runningRight');
-        case key.R:
-          return window.location.reload();
-      }
-    };
-    Leo.event.keyup = function(e) {
-      var key;
-
-      key = Leo.util.KEY_CODES;
-      switch (e.keyCode) {
-        case key.LEFT:
-          Leo.player.setAnimation('standingLeft');
-          return Leo.player.speedX = 0;
-        case key.RIGHT:
-          Leo.player.setAnimation('standingRight');
-          return Leo.player.speedX = 0;
-      }
-    };
+    });
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
     };

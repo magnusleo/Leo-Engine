@@ -220,7 +220,117 @@ Leo.Actor = class Actor
             @animFrameTimeLeft = animation.frames[@animFrame][6] + @animFrameTimeLeft
 
 
-Leo.Layer = class Layer
+
+Leo.Player =
+class Player extends Actor
+
+    constructor: (data) ->
+        super(data)
+        Leo.actors.push this
+
+        @state = new PlayerStateStanding(this)
+
+
+    setState: (state) ->
+        if @state is state
+            return
+        @state = new state(this)
+
+
+    handleInput: (e) ->
+        @state.handleInput(e)
+
+
+
+Leo.PlayerState =
+class PlayerState
+
+    constructor: (@parent) ->
+
+    handleInput: (e) ->
+        key = Leo.util.KEY_CODES
+        switch e.keyCode
+
+            when key.LEFT
+                @parent.direction = -1
+
+            when key.RIGHT
+                @parent.direction = 1
+
+
+
+Leo.PlayerStateGround =
+class PlayerStateGround extends PlayerState
+
+    constructor: (data) ->
+        super(data)
+
+    handleInput: (e) ->
+        super(e)
+
+
+
+Leo.PlayerStateStanding =
+class PlayerStateStanding extends PlayerStateGround
+
+    constructor: (data) ->
+        super(data)
+
+        @parent.speedX = 0
+
+        if @parent.direction > 0
+            @parent.setAnimation 'standingRight'
+        else
+            @parent.setAnimation 'standingLeft'
+
+
+    handleInput: (e) ->
+        super(e)
+        key = Leo.util.KEY_CODES
+
+        unless e.type is 'keydown'
+            return
+
+        switch e.keyCode
+            when key.LEFT, key.RIGHT
+                @parent.setState PlayerStateRunning
+
+
+
+Leo.PlayerStateRunning =
+class PlayerStateRunning extends PlayerStateGround
+
+    constructor: (data) ->
+        super(data)
+        @parent.speedX = 0.15 * @parent.direction
+
+        if @parent.direction > 0
+            @parent.setAnimation 'runningRight'
+        else
+            @parent.setAnimation 'runningLeft'
+
+
+    handleInput: (e) ->
+        super(e)
+        key = Leo.util.KEY_CODES
+
+        if e.type is 'keydown'
+            switch e.keyCode
+                when key.LEFT, key.RIGHT
+                    if @parent.direction > 0
+                        @parent.setAnimation 'runningRight'
+                    else
+                        @parent.setAnimation 'runningLeft'
+
+        else if e.type is 'keyup'
+            switch e.keyCode
+                when key.LEFT, key.RIGHT
+                        @parent.setState PlayerStateStanding
+
+
+
+Leo.Layer =
+class Layer
     constructor: (properties) ->
         # Defaults
         @spritesheet = '' # Name of the spritesheet file
@@ -323,7 +433,19 @@ Leo.Layer = class Layer
 
 window.onload = ->
     Leo.core.init()
-    Leo.actors.push new Leo.Actor(
+
+    Leo.event.keydown = (e) ->
+        key = Leo.util.KEY_CODES
+        switch e.keyCode
+            when key.R
+                window.location.reload()
+            else
+                Leo.player.handleInput(e)
+
+    Leo.event.keyup = (e) ->
+        Leo.player.handleInput(e)
+
+    Leo.player = new Leo.Player
         spritesheet: 'sprite-olle.png'
         animations:
             runningLeft:
@@ -351,30 +473,6 @@ window.onload = ->
         animName: 'standingRight'
         posX: 6
         posY: 12
-    )
-    Leo.player = Leo.actors[Leo.actors.length - 1]
-
-    Leo.event.keydown = (e) ->
-        key = Leo.util.KEY_CODES
-        switch e.keyCode
-            when key.LEFT
-                Leo.player.speedX = -0.15
-                Leo.player.setAnimation 'runningLeft'
-            when key.RIGHT
-                Leo.player.speedX = 0.15
-                Leo.player.setAnimation 'runningRight'
-            when key.R
-                window.location.reload()
-
-    Leo.event.keyup = (e) ->
-        key = Leo.util.KEY_CODES
-        switch e.keyCode
-            when key.LEFT
-                Leo.player.setAnimation 'standingLeft'
-                Leo.player.speedX = 0
-            when key.RIGHT
-                Leo.player.setAnimation 'standingRight'
-                Leo.player.speedX = 0
 
     Leo.cycleCallback = ->
         Leo.view.cameraPosX = Leo.player.posX - 15
