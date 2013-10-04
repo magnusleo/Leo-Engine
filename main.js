@@ -4,11 +4,9 @@
 
 
 (function() {
-  var Leo, LeoActor, LeoLayer, el, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx;
+  var Actor, Layer, Leo, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx;
 
-  el = function(id) {
-    return document.getElementById(id);
-  };
+  Leo = window.Leo = {};
 
   _view = null;
 
@@ -30,241 +28,256 @@
 
   _camH = 0;
 
-  Leo = window.Leo = {
-    init: function() {
-      _view = el('leo-view');
-      Leo._view = _view;
-      _frameBuffer.width = _view.width;
-      _frameBuffer.height = _view.height;
-      _view.width = _view.width * Leo.view.scale;
-      _view.height = _view.height * Leo.view.scale;
-      _viewCtx = _view.getContext('2d');
-      _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false;
-      window.addEventListener('keydown', Leo.event._keydown);
-      window.addEventListener('keyup', Leo.event._keyup);
-      return window.requestAnimationFrame(Leo.cycle);
-    },
-    draw: function() {
-      var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
+  Leo.view = {
+    scale: 2,
+    cameraPosX: 2.0,
+    cameraPosY: 0.0,
+    cameraSpeedX: 0.0,
+    cameraSpeedY: 0.0,
+    cameraWidth: 30,
+    cameraHeight: 17
+  };
 
-      _camX = Leo.view.cameraPosX * Leo.background.tileSize;
-      _camY = Leo.view.cameraPosY * Leo.background.tileSize;
-      _camW = Leo.view.cameraWidth * Leo.background.tileSize;
-      _camH = Leo.view.cameraHeight * Leo.background.tileSize;
-      _frameBufferCtx.fillStyle = Leo.background.color;
-      _frameBufferCtx.fillRect(0, 0, _view.width, _view.height);
-      _ref = Leo.layers;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        layer = _ref[_i];
-        layer.draw();
-      }
-      _ref1 = Leo.actors;
-      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        actor = _ref1[_j];
-        actor.draw();
-      }
-      return _viewCtx.drawImage(_frameBuffer, 0, 0, _frameBuffer.width * Leo.view.scale, _frameBuffer.height * Leo.view.scale);
-    },
-    cycle: function() {
-      var actor, cycleLengthMs, cycleLengthS, thisFrameTime, _i, _len, _ref;
+  Leo.background = {
+    tileSize: 16,
+    color: '#6ec0ff'
+  };
 
-      thisFrameTime = Date.now();
-      cycleLengthMs = thisFrameTime - _latestFrameTime;
-      cycleLengthS = cycleLengthMs * 0.001;
-      Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS;
-      _ref = Leo.actors;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        actor = _ref[_i];
-        actor.advanceAnimation(cycleLengthMs);
-        actor.posX += actor.speedX;
-        actor.posY += actor.speedY;
-      }
-      Leo.draw();
-      _latestFrameTime = thisFrameTime;
-      window.requestAnimationFrame(Leo.cycle);
-      return Leo.cycleCallback();
-    },
-    cycleCallback: function() {},
-    view: {
-      scale: 2,
-      cameraPosX: 2.0,
-      cameraPosY: 0.0,
-      cameraSpeedX: 0.0,
-      cameraSpeedY: 0.0,
-      cameraWidth: 30,
-      cameraHeight: 17
-    },
-    background: {
-      tileSize: 16,
-      color: '#6ec0ff'
-    },
-    actors: [],
-    layers: [],
-    event: {
-      _keydown: function(e) {
-        var keyIndex;
+  Leo.actors = [];
 
-        e.preventDefault();
-        keyIndex = _pressedKeys.indexOf(e.keyCode);
-        if (keyIndex === -1) {
-          _pressedKeys.push(e.keyCode);
-          return Leo.event.keydown(e);
-        }
-      },
-      keydown: function(e) {},
-      _keyup: function(e) {
-        var keyIndex;
+  Leo.layers = [];
 
-        e.preventDefault();
-        keyIndex = _pressedKeys.indexOf(e.keyCode);
-        if (keyIndex !== -1) {
-          _pressedKeys.splice(keyIndex, 1);
-        }
-        return Leo.event.keyup(e);
-      },
-      keyup: function(e) {}
-    },
-    sprites: {
-      getImg: function(path) {
-        var _img, _imgObj;
+  Leo.core = {};
 
-        _img = Leo.sprites._img;
-        if (_img[path]) {
-          return _img[path];
-        } else {
-          _imgObj = _img[path] = new Image();
-          _imgObj.src = '_img/' + path;
-          return _imgObj;
-        }
-      },
-      remove: function(path) {
-        var _img;
+  Leo.core.init = function() {
+    _view = document.getElementById('leo-view');
+    Leo._view = _view;
+    _frameBuffer.width = _view.width;
+    _frameBuffer.height = _view.height;
+    _view.width = _view.width * Leo.view.scale;
+    _view.height = _view.height * Leo.view.scale;
+    _viewCtx = _view.getContext('2d');
+    _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false;
+    window.addEventListener('keydown', Leo.event._keydown);
+    window.addEventListener('keyup', Leo.event._keyup);
+    return window.requestAnimationFrame(Leo.core.cycle);
+  };
 
-        _img = Leo.sprites._img;
-        if (_img[path]) {
-          return _img[path] = null;
-        }
-      },
-      _img: {}
-    },
-    util: {
-      KEY_CODES: {
-        8: 'backspace',
-        9: 'tab',
-        13: 'enter',
-        16: 'shift',
-        17: 'ctrl',
-        18: 'alt',
-        19: 'pause/break',
-        20: 'caps lock',
-        27: 'escape',
-        33: 'page up',
-        34: 'page down',
-        35: 'end',
-        36: 'home',
-        37: 'left',
-        38: 'up',
-        39: 'right',
-        40: 'down',
-        45: 'insert',
-        46: 'delete',
-        48: '0',
-        49: '1',
-        50: '2',
-        51: '3',
-        52: '4',
-        53: '5',
-        54: '6',
-        55: '7',
-        56: '8',
-        57: '9',
-        65: 'a',
-        66: 'b',
-        67: 'c',
-        68: 'd',
-        69: 'e',
-        70: 'f',
-        71: 'g',
-        72: 'h',
-        73: 'i',
-        74: 'j',
-        75: 'k',
-        76: 'l',
-        77: 'm',
-        78: 'n',
-        79: 'o',
-        80: 'p',
-        81: 'q',
-        82: 'r',
-        83: 's',
-        84: 't',
-        85: 'u',
-        86: 'v',
-        87: 'w',
-        88: 'x',
-        89: 'y',
-        90: 'z',
-        91: 'left window key',
-        92: 'right window key',
-        93: 'select key',
-        96: 'numpad 0',
-        97: 'numpad 1',
-        98: 'numpad 2',
-        99: 'numpad 3',
-        100: 'numpad 4',
-        101: 'numpad 5',
-        102: 'numpad 6',
-        103: 'numpad 7',
-        104: 'numpad 8',
-        105: 'numpad 9',
-        106: 'multiply',
-        106: '*',
-        107: 'add',
-        107: '+',
-        109: 'subtract',
-        110: 'decimal point',
-        111: 'divide',
-        112: 'f1',
-        113: 'f2',
-        114: 'f3',
-        115: 'f4',
-        116: 'f5',
-        117: 'f6',
-        118: 'f7',
-        119: 'f8',
-        120: 'f9',
-        121: 'f10',
-        122: 'f11',
-        123: 'f12',
-        144: 'num lock',
-        145: 'scroll lock',
-        186: 'semi-colon',
-        186: ';',
-        187: 'equal sign',
-        187: '=',
-        188: 'comma',
-        188: ',',
-        189: 'dash',
-        189: '-',
-        190: 'period',
-        190: '.',
-        191: 'forward slash',
-        191: '/',
-        192: 'grave accent',
-        219: 'open bracket',
-        219: '[',
-        220: 'back slash',
-        220: '\\',
-        221: 'close braket',
-        221: ']',
-        222: 'single quote',
-        222: '\''
-      }
+  Leo.core.draw = function() {
+    var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
+
+    _camX = Leo.view.cameraPosX * Leo.background.tileSize;
+    _camY = Leo.view.cameraPosY * Leo.background.tileSize;
+    _camW = Leo.view.cameraWidth * Leo.background.tileSize;
+    _camH = Leo.view.cameraHeight * Leo.background.tileSize;
+    _frameBufferCtx.fillStyle = Leo.background.color;
+    _frameBufferCtx.fillRect(0, 0, _view.width, _view.height);
+    _ref = Leo.layers;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      layer = _ref[_i];
+      layer.draw();
+    }
+    _ref1 = Leo.actors;
+    for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+      actor = _ref1[_j];
+      actor.draw();
+    }
+    return _viewCtx.drawImage(_frameBuffer, 0, 0, _frameBuffer.width * Leo.view.scale, _frameBuffer.height * Leo.view.scale);
+  };
+
+  Leo.core.cycle = function() {
+    var actor, cycleLengthMs, cycleLengthS, thisFrameTime, _i, _len, _ref;
+
+    thisFrameTime = Date.now();
+    cycleLengthMs = thisFrameTime - _latestFrameTime;
+    cycleLengthS = cycleLengthMs * 0.001;
+    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS;
+    _ref = Leo.actors;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      actor = _ref[_i];
+      actor.advanceAnimation(cycleLengthMs);
+      actor.posX += actor.speedX;
+      actor.posY += actor.speedY;
+    }
+    Leo.core.draw();
+    _latestFrameTime = thisFrameTime;
+    window.requestAnimationFrame(Leo.core.cycle);
+    return Leo.cycleCallback();
+  };
+
+  Leo.cycleCallback = function() {};
+
+  Leo.event = {};
+
+  Leo.event._keydown = function(e) {
+    var keyIndex;
+
+    e.preventDefault();
+    keyIndex = _pressedKeys.indexOf(e.keyCode);
+    if (keyIndex === -1) {
+      _pressedKeys.push(e.keyCode);
+      return Leo.event.keydown(e);
     }
   };
 
-  LeoActor = (function() {
-    function LeoActor(properties) {
+  Leo.event.keydown = function(e) {};
+
+  Leo.event._keyup = function(e) {
+    var keyIndex;
+
+    e.preventDefault();
+    keyIndex = _pressedKeys.indexOf(e.keyCode);
+    if (keyIndex !== -1) {
+      _pressedKeys.splice(keyIndex, 1);
+    }
+    return Leo.event.keyup(e);
+  };
+
+  Leo.event.keyup = function(e) {};
+
+  Leo.sprite = {};
+
+  Leo.sprite.getImg = function(path) {
+    var _img, _imgObj;
+
+    _img = Leo.sprite._img;
+    if (_img[path]) {
+      return _img[path];
+    } else {
+      _imgObj = _img[path] = new Image();
+      _imgObj.src = '_img/' + path;
+      return _imgObj;
+    }
+  };
+
+  Leo.sprite.remove = function(path) {
+    var _img;
+
+    _img = Leo.sprite._img;
+    if (_img[path]) {
+      return _img[path] = null;
+    }
+  };
+
+  Leo.sprite._img = {};
+
+  Leo.util = {};
+
+  Leo.util.KEY_CODES = {
+    'BACKSPACE': 8,
+    'TAB': 9,
+    'ENTER': 13,
+    'SHIFT': 16,
+    'CTRL': 17,
+    'ALT': 18,
+    'PAUSE_BREAK': 19,
+    'CAPS_LOCK': 20,
+    'ESCAPE': 27,
+    'PAGE_UP': 33,
+    'PAGE_DOWN': 34,
+    'END': 35,
+    'HOME': 36,
+    'LEFT': 37,
+    'UP': 38,
+    'RIGHT': 39,
+    'DOWN': 40,
+    'INSERT': 45,
+    'DELETE': 46,
+    '0': 48,
+    '1': 49,
+    '2': 50,
+    '3': 51,
+    '4': 52,
+    '5': 53,
+    '6': 54,
+    '7': 55,
+    '8': 56,
+    '9': 57,
+    'A': 65,
+    'B': 66,
+    'C': 67,
+    'D': 68,
+    'E': 69,
+    'F': 70,
+    'G': 71,
+    'H': 72,
+    'I': 73,
+    'J': 74,
+    'K': 75,
+    'L': 76,
+    'M': 77,
+    'N': 78,
+    'O': 79,
+    'P': 80,
+    'Q': 81,
+    'R': 82,
+    'S': 83,
+    'T': 84,
+    'U': 85,
+    'V': 86,
+    'W': 87,
+    'X': 88,
+    'Y': 89,
+    'Z': 90,
+    'LEFT_WINDOW_KEY': 91,
+    'RIGHT_WINDOW_KEY': 92,
+    'SELECT_KEY': 93,
+    'NUMPAD_0': 96,
+    'NUMPAD_1': 97,
+    'NUMPAD_2': 98,
+    'NUMPAD_3': 99,
+    'NUMPAD_4': 100,
+    'NUMPAD_5': 101,
+    'NUMPAD_6': 102,
+    'NUMPAD_7': 103,
+    'NUMPAD_8': 104,
+    'NUMPAD_9': 105,
+    'MULTIPLY': 106,
+    '*': 106,
+    'ADD': 107,
+    '+': 107,
+    'SUBTRACT': 109,
+    'DECIMAL_POINT': 110,
+    'DIVIDE': 111,
+    'F1': 112,
+    'F2': 113,
+    'F3': 114,
+    'F4': 115,
+    'F5': 116,
+    'F6': 117,
+    'F7': 118,
+    'F8': 119,
+    'F9': 120,
+    'F10': 121,
+    'F11': 122,
+    'F12': 123,
+    'NUM_LOCK': 144,
+    'SCROLL_LOCK': 145,
+    'SEMI-COLON': 186,
+    ';': 186,
+    'EQUAL_SIGN': 187,
+    '=': 187,
+    'COMMA': 188,
+    ',': 188,
+    'DASH': 189,
+    '-': 189,
+    'PERIOD': 190,
+    '.': 190,
+    'FORWARD_SLASH': 191,
+    '/': 191,
+    'GRAVE_ACCENT': 192,
+    'OPEN_BRACKET': 219,
+    '[': 219,
+    'BACK_SLASH': 220,
+    '\\': 220,
+    'CLOSE_BRAKET': 221,
+    ']': 221,
+    'SINGLE_QUOTE': 222,
+    '\'': 222
+  };
+
+  Leo.Actor = Actor = (function() {
+    function Actor(properties) {
       var key, val;
 
       this.spritesheet = '';
@@ -286,17 +299,17 @@
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = Leo.sprites.getImg(this.spritesheet);
+      this.spriteImg = Leo.sprite.getImg(this.spritesheet);
     }
 
-    LeoActor.prototype.draw = function() {
+    Actor.prototype.draw = function() {
       var frame;
 
       frame = this.animations[this.animName].frames[this.animFrame];
       return _frameBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], ((this.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, ((this.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, frame[2], frame[3]);
     };
 
-    LeoActor.prototype.setAnimation = function(animName) {
+    Actor.prototype.setAnimation = function(animName) {
       if (animName == null) {
         animName = '';
       }
@@ -305,7 +318,7 @@
       return this.animName = animName;
     };
 
-    LeoActor.prototype.advanceAnimation = function(cycleLengthMs) {
+    Actor.prototype.advanceAnimation = function(cycleLengthMs) {
       var animation, maxFrame, _results;
 
       animation = this.animations[this.animName];
@@ -329,12 +342,12 @@
       return _results;
     };
 
-    return LeoActor;
+    return Actor;
 
   })();
 
-  LeoLayer = (function() {
-    function LeoLayer(properties) {
+  Leo.Layer = Layer = (function() {
+    function Layer(properties) {
       var chunk, key, layer, val, _i, _len, _ref;
 
       this.spritesheet = '';
@@ -355,7 +368,7 @@
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = Leo.sprites.getImg(this.spritesheet);
+      this.spriteImg = Leo.sprite.getImg(this.spritesheet);
       layer = this;
       this.spriteImg.addEventListener('load', function() {
         var chunk, _i, _len, _ref;
@@ -383,7 +396,7 @@
       }
     }
 
-    LeoLayer.prototype.draw = function() {
+    Layer.prototype.draw = function() {
       var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref, _ref1;
 
       if (this.isLooping) {
@@ -411,7 +424,7 @@
       }
     };
 
-    LeoLayer.prototype.drawChunk = function(chunk, posX, posY) {
+    Layer.prototype.drawChunk = function(chunk, posX, posY) {
       var column, tile, x, y, _i, _j, _len, _len1, _ref;
 
       if (posX < -chunk.drawBuffer.width || posX > _camW || posY < -chunk.drawBuffer.height || posY > _camH) {
@@ -431,20 +444,20 @@
       return _frameBufferCtx.drawImage(chunk.drawBuffer, 0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height, posX, posY, chunk.drawBuffer.width, chunk.drawBuffer.height);
     };
 
-    LeoLayer.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
+    Layer.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
       if (spriteX === -1 || spriteY === -1) {
         return;
       }
       return ctx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX >> 0, posY >> 0, this.tileSize, this.tileSize);
     };
 
-    return LeoLayer;
+    return Layer;
 
   })();
 
   window.onload = function() {
-    Leo.init();
-    Leo.actors.push(new LeoActor({
+    Leo.core.init();
+    Leo.actors.push(new Leo.Actor({
       spritesheet: 'sprite-olle.png',
       animations: {
         runningLeft: {
@@ -470,23 +483,29 @@
     }));
     Leo.player = Leo.actors[Leo.actors.length - 1];
     Leo.event.keydown = function(e) {
-      switch (Leo.util.KEY_CODES[e.keyCode]) {
-        case 'left':
+      var key;
+
+      key = Leo.util.KEY_CODES;
+      switch (e.keyCode) {
+        case key.LEFT:
           Leo.player.speedX = -0.15;
           return Leo.player.setAnimation('runningLeft');
-        case 'right':
+        case key.RIGHT:
           Leo.player.speedX = 0.15;
           return Leo.player.setAnimation('runningRight');
-        case 'r':
+        case key.R:
           return window.location.reload();
       }
     };
     Leo.event.keyup = function(e) {
-      switch (Leo.util.KEY_CODES[e.keyCode]) {
-        case 'left':
+      var key;
+
+      key = Leo.util.KEY_CODES;
+      switch (e.keyCode) {
+        case key.LEFT:
           Leo.player.setAnimation('standingLeft');
           return Leo.player.speedX = 0;
-        case 'right':
+        case key.RIGHT:
           Leo.player.setAnimation('standingRight');
           return Leo.player.speedX = 0;
       }
@@ -494,7 +513,7 @@
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
     };
-    Leo.layers.push(new LeoLayer({
+    Leo.layers.push(new Leo.Layer({
       name: 'mountains',
       spritesheet: 'sprite-background.png',
       isLooping: true,
@@ -510,7 +529,7 @@
         }
       ]
     }));
-    Leo.layers.push(new LeoLayer({
+    Leo.layers.push(new Leo.Layer({
       name: 'cloud 1',
       spritesheet: 'sprite-background.png',
       isLooping: true,
@@ -526,7 +545,7 @@
         }
       ]
     }));
-    Leo.layers.push(new LeoLayer({
+    Leo.layers.push(new Leo.Layer({
       name: 'cloud 2',
       spritesheet: 'sprite-background.png',
       isLooping: true,
@@ -542,7 +561,7 @@
         }
       ]
     }));
-    return Leo.layers.push(new LeoLayer({
+    return Leo.layers.push(new Leo.Layer({
       name: 'ground',
       spritesheet: 'sprite-background.png',
       chunks: [
