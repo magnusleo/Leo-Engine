@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Layer, Leo, Player, PlayerState, PlayerStateGround, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
+  var Actor, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -29,6 +29,10 @@
   _camW = 0;
 
   _camH = 0;
+
+  Leo.environment = {
+    gravity: 2
+  };
 
   Leo.view = {
     scale: 2,
@@ -97,9 +101,7 @@
     _ref = Leo.actors;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       actor = _ref[_i];
-      actor.advanceAnimation(cycleLengthMs);
-      actor.posX += actor.speedX;
-      actor.posY += actor.speedY;
+      actor.update(cycleLengthMs);
     }
     Leo.core.draw();
     _latestFrameTime = thisFrameTime;
@@ -344,6 +346,12 @@
       return _results;
     };
 
+    Actor.prototype.update = function(cycleLengthMs) {
+      this.advanceAnimation(cycleLengthMs);
+      this.posX += this.speedX;
+      return this.posY += this.speedY;
+    };
+
     return Actor;
 
   })();
@@ -355,17 +363,28 @@
       Player.__super__.constructor.call(this, data);
       Leo.actors.push(this);
       this.state = new PlayerStateStanding(this);
+      this.stateBefore = null;
     }
 
     Player.prototype.setState = function(state) {
       if (this.state === state) {
         return;
       }
+      this.stateBefore = this.state;
       return this.state = new state(this);
     };
 
     Player.prototype.handleInput = function(e) {
       return this.state.handleInput(e);
+    };
+
+    Player.prototype.update = function(cycleLengthMs) {
+      this.speedY += Leo.environment.gravity * cycleLengthMs * 0.001;
+      Player.__super__.update.call(this, cycleLengthMs);
+      this.state.update(cycleLengthMs);
+      if (this.posY > 12) {
+        return this.posY = 12;
+      }
     };
 
     return Player;
@@ -389,6 +408,8 @@
       }
     };
 
+    PlayerState.prototype.update = function(cycleLengthMs) {};
+
     return PlayerState;
 
   })();
@@ -401,7 +422,17 @@
     }
 
     PlayerStateGround.prototype.handleInput = function(e) {
-      return PlayerStateGround.__super__.handleInput.call(this, e);
+      var key;
+
+      PlayerStateGround.__super__.handleInput.call(this, e);
+      key = Leo.util.KEY_CODES;
+      if (e.type === 'keydown') {
+        switch (e.keyCode) {
+          case key.UP:
+          case key.Z:
+            return this.parent.setState(PlayerStateJumping);
+        }
+      }
     };
 
     return PlayerStateGround;
@@ -426,13 +457,12 @@
 
       PlayerStateStanding.__super__.handleInput.call(this, e);
       key = Leo.util.KEY_CODES;
-      if (e.type !== 'keydown') {
-        return;
-      }
-      switch (e.keyCode) {
-        case key.LEFT:
-        case key.RIGHT:
-          return this.parent.setState(PlayerStateRunning);
+      if (e.type === 'keydown') {
+        switch (e.keyCode) {
+          case key.LEFT:
+          case key.RIGHT:
+            return this.parent.setState(PlayerStateRunning);
+        }
       }
     };
 
@@ -450,6 +480,9 @@
         this.parent.setAnimation('runningRight');
       } else {
         this.parent.setAnimation('runningLeft');
+      }
+      if (this.parent.stateBefore instanceof PlayerStateAir) {
+        this.parent.animFrame = 1;
       }
     }
 
@@ -480,6 +513,74 @@
     return PlayerStateRunning;
 
   })(PlayerStateGround);
+
+  Leo.PlayerStateAir = PlayerStateAir = (function(_super) {
+    __extends(PlayerStateAir, _super);
+
+    function PlayerStateAir(data) {
+      PlayerStateAir.__super__.constructor.call(this, data);
+    }
+
+    PlayerStateAir.prototype.handleInput = function(e) {
+      return PlayerStateAir.__super__.handleInput.call(this, e);
+    };
+
+    PlayerStateAir.prototype.update = function(cycleLengthMs) {
+      PlayerStateAir.__super__.update.call(this, cycleLengthMs);
+      if (this.parent.posY >= 12) {
+        if (this.parent.speedX === 0) {
+          return this.parent.setState(PlayerStateStanding);
+        } else {
+          return this.parent.setState(PlayerStateRunning);
+        }
+      }
+    };
+
+    return PlayerStateAir;
+
+  })(PlayerState);
+
+  Leo.PlayerStateJumping = PlayerStateJumping = (function(_super) {
+    __extends(PlayerStateJumping, _super);
+
+    function PlayerStateJumping(data) {
+      PlayerStateJumping.__super__.constructor.call(this, data);
+      this.parent.speedY = -0.6;
+      if (this.parent.direction > 0) {
+        this.parent.setAnimation('jumpingRight');
+      } else {
+        this.parent.setAnimation('jumpingLeft');
+      }
+    }
+
+    PlayerStateJumping.prototype.handleInput = function(e) {
+      var key;
+
+      PlayerStateJumping.__super__.handleInput.call(this, e);
+      key = Leo.util.KEY_CODES;
+      if (e.type === 'keydown') {
+        switch (e.keyCode) {
+          case key.LEFT:
+            this.parent.direction = -1;
+            this.parent.speedX = -0.15;
+            return this.parent.setAnimation('jumpingLeft');
+          case key.RIGHT:
+            this.parent.direction = 1;
+            this.parent.speedX = 0.15;
+            return this.parent.setAnimation('jumpingRight');
+        }
+      } else if (e.type === 'keyup') {
+        switch (e.keyCode) {
+          case key.LEFT:
+          case key.RIGHT:
+            return this.parent.speedX = 0;
+        }
+      }
+    };
+
+    return PlayerStateJumping;
+
+  })(PlayerStateAir);
 
   Leo.Layer = Layer = (function() {
     function Layer(properties) {
@@ -609,6 +710,14 @@
     Leo.player = new Leo.Player({
       spritesheet: 'sprite-olle.png',
       animations: {
+        jumpingLeft: {
+          frames: [[19, 33, 30, 32, -4, 0, 192]],
+          doLoop: false
+        },
+        jumpingRight: {
+          frames: [[19, 0, 30, 32, -8, 0, 192]],
+          doLoop: false
+        },
         runningLeft: {
           frames: [[19, 33, 30, 32, -4, 0, 192], [49, 33, 13, 32, 4, 0, 192]],
           doLoop: true
