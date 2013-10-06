@@ -31,7 +31,7 @@
   _camH = 0;
 
   Leo.environment = {
-    gravity: 2
+    gravity: 1.0
   };
 
   Leo.view = {
@@ -313,11 +313,14 @@
       return _frameBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], ((this.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, ((this.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, frame[2], frame[3]);
     };
 
-    Actor.prototype.setAnimation = function(animName) {
+    Actor.prototype.setAnimation = function(animName, animFrame) {
       if (animName == null) {
         animName = '';
       }
-      this.animFrame = 0;
+      if (animFrame == null) {
+        animFrame = 0;
+      }
+      this.animFrame = animFrame;
       this.animFrameTimeLeft = this.animations[animName].frames[0][6];
       return this.animName = animName;
     };
@@ -475,19 +478,14 @@
 
     function PlayerStateRunning(data) {
       PlayerStateRunning.__super__.constructor.call(this, data);
-      this.parent.speedX = 0.15 * this.parent.direction;
-      if (this.parent.direction > 0) {
-        this.parent.setAnimation('runningRight');
-      } else {
-        this.parent.setAnimation('runningLeft');
-      }
+      this._setSpeedAndAnim();
       if (this.parent.stateBefore instanceof PlayerStateAir) {
         this.parent.animFrame = 1;
       }
     }
 
     PlayerStateRunning.prototype.handleInput = function(e) {
-      var key;
+      var key, keyIndexLeft, keyIndexRight;
 
       PlayerStateRunning.__super__.handleInput.call(this, e);
       key = Leo.util.KEY_CODES;
@@ -495,18 +493,40 @@
         switch (e.keyCode) {
           case key.LEFT:
           case key.RIGHT:
-            if (this.parent.direction > 0) {
-              return this.parent.setAnimation('runningRight');
-            } else {
-              return this.parent.setAnimation('runningLeft');
-            }
+            return this._setSpeedAndAnim();
         }
       } else if (e.type === 'keyup') {
         switch (e.keyCode) {
           case key.LEFT:
           case key.RIGHT:
-            return this.parent.setState(PlayerStateStanding);
+            keyIndexLeft = _pressedKeys.indexOf(key.LEFT);
+            keyIndexRight = _pressedKeys.indexOf(key.RIGHT);
+            if (keyIndexLeft === -1 && keyIndexRight === -1) {
+              return this.parent.setState(PlayerStateStanding);
+            } else if (keyIndexLeft === -1 && keyIndexRight > -1) {
+              this.parent.direction = 1;
+              return this._setSpeedAndAnim({
+                animFrame: 1
+              });
+            } else {
+              this.parent.direction = -1;
+              return this._setSpeedAndAnim({
+                animFrame: 1
+              });
+            }
         }
+      }
+    };
+
+    PlayerStateRunning.prototype._setSpeedAndAnim = function(options) {
+      if (options == null) {
+        options = {};
+      }
+      this.parent.speedX = 0.15 * this.parent.direction;
+      if (this.parent.direction > 0) {
+        return this.parent.setAnimation('runningRight', options.animFrame);
+      } else {
+        return this.parent.setAnimation('runningLeft', options.animFrame);
       }
     };
 
@@ -545,7 +565,7 @@
 
     function PlayerStateJumping(data) {
       PlayerStateJumping.__super__.constructor.call(this, data);
-      this.parent.speedY = -0.6;
+      this.parent.speedY = -0.35;
       if (this.parent.direction > 0) {
         this.parent.setAnimation('jumpingRight');
       } else {
@@ -554,7 +574,7 @@
     }
 
     PlayerStateJumping.prototype.handleInput = function(e) {
-      var key;
+      var key, keyIndexLeft, keyIndexRight;
 
       PlayerStateJumping.__super__.handleInput.call(this, e);
       key = Leo.util.KEY_CODES;
@@ -562,19 +582,36 @@
         switch (e.keyCode) {
           case key.LEFT:
             this.parent.direction = -1;
-            this.parent.speedX = -0.15;
-            return this.parent.setAnimation('jumpingLeft');
+            return this._setSpeedAndAnim();
           case key.RIGHT:
             this.parent.direction = 1;
-            this.parent.speedX = 0.15;
-            return this.parent.setAnimation('jumpingRight');
+            return this._setSpeedAndAnim();
         }
       } else if (e.type === 'keyup') {
         switch (e.keyCode) {
           case key.LEFT:
           case key.RIGHT:
-            return this.parent.speedX = 0;
+            keyIndexLeft = _pressedKeys.indexOf(key.LEFT);
+            keyIndexRight = _pressedKeys.indexOf(key.RIGHT);
+            if (keyIndexLeft === -1 && keyIndexRight === -1) {
+              return this.parent.speedX = 0;
+            } else if (keyIndexLeft === -1 && keyIndexRight > -1) {
+              this.parent.direction = 1;
+              return this._setSpeedAndAnim();
+            } else {
+              this.parent.direction = -1;
+              return this._setSpeedAndAnim();
+            }
         }
+      }
+    };
+
+    PlayerStateJumping.prototype._setSpeedAndAnim = function() {
+      this.parent.speedX = 0.15 * this.parent.direction;
+      if (this.parent.direction > 0) {
+        return this.parent.setAnimation('jumpingRight');
+      } else {
+        return this.parent.setAnimation('jumpingLeft');
       }
     };
 

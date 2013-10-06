@@ -19,7 +19,7 @@ _camH = 0
 
 # Public variables
 Leo.environment =
-    gravity: 2
+    gravity: 1.0 # Tiles per second^2
 
 Leo.view =
     scale: 2
@@ -205,8 +205,8 @@ class Actor
             frame[3], # Destination height
 
 
-    setAnimation: (animName = '') ->
-        @animFrame = 0
+    setAnimation: (animName = '', animFrame = 0) ->
+        @animFrame = animFrame
         @animFrameTimeLeft = @animations[animName].frames[0][6]
         @animName = animName
 
@@ -265,6 +265,15 @@ class Player extends Actor
             @posY = 12
 
 
+
+# PlayerState
+# |
+# |__PlayerStateAir
+# |   |__PlayerStateJumping
+# |
+# |__PlayerStateGround
+#     |__PlayerStateStanding
+#     |__PlayerStateRunning
 
 Leo.PlayerState =
 class PlayerState
@@ -335,12 +344,7 @@ class PlayerStateRunning extends PlayerStateGround
 
     constructor: (data) ->
         super(data)
-        @parent.speedX = 0.15 * @parent.direction
-
-        if @parent.direction > 0
-            @parent.setAnimation 'runningRight'
-        else
-            @parent.setAnimation 'runningLeft'
+        @_setSpeedAndAnim()
 
         if @parent.stateBefore instanceof PlayerStateAir
             @parent.animFrame = 1
@@ -353,15 +357,29 @@ class PlayerStateRunning extends PlayerStateGround
         if e.type is 'keydown'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    if @parent.direction > 0
-                        @parent.setAnimation 'runningRight'
-                    else
-                        @parent.setAnimation 'runningLeft'
+                    @_setSpeedAndAnim()
 
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
+                    keyIndexLeft = _pressedKeys.indexOf key.LEFT
+                    keyIndexRight = _pressedKeys.indexOf key.RIGHT
+                    if keyIndexLeft is -1 and keyIndexRight is -1
                         @parent.setState PlayerStateStanding
+                    else if keyIndexLeft is -1 and keyIndexRight > -1
+                        @parent.direction = 1
+                        @_setSpeedAndAnim { animFrame: 1 }
+                    else # if keyIndexLeft > -1 and keyIndexRight is -1
+                        @parent.direction = -1
+                        @_setSpeedAndAnim { animFrame: 1 }
+
+
+    _setSpeedAndAnim: (options = {})->
+        @parent.speedX = 0.15 * @parent.direction
+        if @parent.direction > 0
+            @parent.setAnimation 'runningRight', options.animFrame
+        else
+            @parent.setAnimation 'runningLeft', options.animFrame
 
 
 Leo.PlayerStateAir =
@@ -391,7 +409,7 @@ class PlayerStateJumping extends PlayerStateAir
     constructor: (data) ->
         super(data)
 
-        @parent.speedY = -0.6
+        @parent.speedY = -0.35
 
         if @parent.direction > 0
             @parent.setAnimation 'jumpingRight'
@@ -407,18 +425,33 @@ class PlayerStateJumping extends PlayerStateAir
             switch e.keyCode
                 when key.LEFT
                     @parent.direction = -1
-                    @parent.speedX = -0.15
-                    @parent.setAnimation 'jumpingLeft'
+                    @_setSpeedAndAnim()
 
                 when key.RIGHT
                     @parent.direction = 1
-                    @parent.speedX = 0.15
-                    @parent.setAnimation 'jumpingRight'
+                    @_setSpeedAndAnim()
 
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    @parent.speedX = 0
+                    keyIndexLeft = _pressedKeys.indexOf key.LEFT
+                    keyIndexRight = _pressedKeys.indexOf key.RIGHT
+                    if keyIndexLeft is -1 and keyIndexRight is -1
+                        @parent.speedX = 0
+                    else if keyIndexLeft is -1 and keyIndexRight > -1
+                        @parent.direction = 1
+                        @_setSpeedAndAnim()
+                    else # if keyIndexLeft > -1 and keyIndexRight is -1
+                        @parent.direction = -1
+                        @_setSpeedAndAnim()
+
+
+    _setSpeedAndAnim: ->
+        @parent.speedX = 0.15 * @parent.direction
+        if @parent.direction > 0
+            @parent.setAnimation 'jumpingRight'
+        else
+            @parent.setAnimation 'jumpingLeft'
 
 
 
