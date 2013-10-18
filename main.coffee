@@ -1,5 +1,7 @@
 ###Copyright 2013 Magnus Leo. All rights reserved.###
 
+#IDEA: Dynamic zoom and automatic screen size (adapt to window).
+
 Leo = window.Leo = {}
 
 
@@ -16,6 +18,7 @@ _camX = 0
 _camY = 0
 _camW = 0
 _camH = 0
+_editTile = [-1, -1]
 
 # Public variables
 Leo.environment =
@@ -35,7 +38,6 @@ Leo.background =
     color: '#6ec0ff'
 
 Leo.actors = []
-Leo.layers = []
 
 
 # Core functions
@@ -54,6 +56,39 @@ Leo.core.init = ->
     _viewCtx = _view.getContext('2d')
     _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false
 
+    _view.addEventListener 'mousedown', (e) ->
+        unless e.button is 0
+            return
+
+        e.preventDefault()
+
+        mouseX   = e.offsetX
+        mouseY   = e.offsetY
+        camX     = Leo.view.cameraPosX
+        camY     = Leo.view.cameraPosY
+        scale    = Leo.view.scale
+        chunkW   = Leo.view.cameraWidth
+        chunkH   = Leo.view.cameraHeight
+        tileSize = Leo.background.tileSize
+
+        chunkX   = ((camX + mouseX / scale / tileSize) / chunkW) >> 0
+        tileX    = (mouseX / scale / tileSize - (chunkX * chunkW - camX)) >> 0
+
+        chunkY   = ((camY + mouseY / scale / tileSize) / chunkH) >> 0
+        tileY    = (mouseY / scale / tileSize - (chunkY * chunkH - camY)) >> 0
+
+        layer = Leo.layers.get('ground')
+        tile     = layer.getTile(chunkX, tileX, tileY)
+
+        if e.altKey
+            _editTile = tile
+        else
+           layer.setTile(chunkX, tileX, tileY, _editTile)
+
+        #TODO: Use this information for something, like drawing!
+
+    _view.addEventListener 'mouseup', (e) ->
+        e.preventDefault()
 
     window.addEventListener 'keydown', Leo.event._keydown
     window.addEventListener 'keyup',   Leo.event._keyup
@@ -72,7 +107,7 @@ Leo.core.draw = ->
     _frameBufferCtx.fillRect 0, 0, _view.width, _view.height
 
     # Render layers
-    for layer in Leo.layers
+    for layer in Leo.layers.objects
         layer.draw()
 
     # Render Actors
@@ -152,6 +187,29 @@ Leo.sprite.remove = (path) ->
     if _img[path] then _img[path] = null
 
 Leo.sprite._img = {} # Hashmap of image objects with the sprite path as key
+
+
+
+# Layers
+Leo.layers = {}
+
+Leo.layers.objects = []
+
+Leo.layers.add = (layerObj) ->
+    if not (layerObj instanceof Layer) or
+    not layerObj.id or
+    Leo.layers.get(layerObj.id)
+        return null
+
+    Leo.layers.objects.push(layerObj)
+
+Leo.layers.get = (id) ->
+    for layerObj in Leo.layers.objects
+        if layerObj.id is id
+            return layerObj
+    return null
+
+
 
 
 # Utilities
@@ -522,6 +580,7 @@ class Layer
 
         if chunk.drawBufferDirty
             # Redraw chunk
+            chunk.drawBufferCtx.clearRect(0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height)
             for column, x in chunk.tiles
                 for tile, y in column by 2
                     @drawTile chunk.drawBufferCtx,
@@ -554,6 +613,25 @@ class Layer
             posY >> 0,
             @tileSize, # Destination width
             @tileSize, # Destination height
+
+
+    getTile: (chunkX, tileX, tileY) ->
+        chunk = @chunks[chunkX]
+        x = tileX - chunk.tileOffsetX
+        y = (tileY - chunk.tileOffsetY) * 2
+        column = chunk.tiles[x]
+        tile = [column[y], column[y + 1]]
+        return tile
+
+
+    setTile: (chunkX, tileX, tileY, tile) ->
+        chunk = @chunks[chunkX]
+        chunk.drawBufferDirty = true
+        x = tileX - chunk.tileOffsetX
+        y = (tileY - chunk.tileOffsetY) * 2
+        column = chunk.tiles[x]
+        column[y] = tile[0]
+        column[y + 1] = tile[1]
 
 
 
@@ -613,8 +691,8 @@ window.onload = ->
     Leo.cycleCallback = ->
         Leo.view.cameraPosX = Leo.player.posX - 15
 
-    Leo.layers.push new Leo.Layer(
-        name: 'mountains'
+    Leo.layers.add new Leo.Layer(
+        id: 'mountains'
         spritesheet: 'sprite-background.png'
         isLooping: true
         parallax: 0.5
@@ -639,8 +717,8 @@ window.onload = ->
         ]
     )
 
-    Leo.layers.push new Leo.Layer(
-        name: 'cloud 1'
+    Leo.layers.add new Leo.Layer(
+        id: 'cloud 1'
         spritesheet: 'sprite-background.png'
         isLooping: true
         parallax: 0.21
@@ -659,8 +737,8 @@ window.onload = ->
         ]
     )
 
-    Leo.layers.push new Leo.Layer(
-        name: 'cloud 2'
+    Leo.layers.add new Leo.Layer(
+        id: 'cloud 2'
         spritesheet: 'sprite-background.png'
         isLooping: true
         parallax: 0.2
@@ -679,8 +757,8 @@ window.onload = ->
         ]
     )
 
-    Leo.layers.push new Leo.Layer(
-        name: 'ground'
+    Leo.layers.add new Leo.Layer(
+        id: 'ground'
         spritesheet: 'sprite-background.png'
         chunks: [
             chunkOffsetX: 0
@@ -693,7 +771,7 @@ window.onload = ->
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
-                [4,0, 1,2, 1,3, 1,3]
+                [ 4,0,  1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
@@ -731,7 +809,7 @@ window.onload = ->
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
-                [4,0, 1,2, 1,3, 1,3]
+                [ 4,0,  1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]
                 [-1,-1, 1,2, 1,3, 1,3]
                 [-1,-1, 2,2, 2,3, 2,3]

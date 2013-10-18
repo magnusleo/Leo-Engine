@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
+  var Actor, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -30,6 +30,8 @@
 
   _camH = 0;
 
+  _editTile = [-1, -1];
+
   Leo.environment = {
     gravity: 1.0
   };
@@ -51,8 +53,6 @@
 
   Leo.actors = [];
 
-  Leo.layers = [];
-
   Leo.core = {};
 
   Leo.core.init = function() {
@@ -64,6 +64,36 @@
     _view.height = _view.height * Leo.view.scale;
     _viewCtx = _view.getContext('2d');
     _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false;
+    _view.addEventListener('mousedown', function(e) {
+      var camX, camY, chunkH, chunkW, chunkX, chunkY, layer, mouseX, mouseY, scale, tile, tileSize, tileX, tileY;
+
+      if (e.button !== 0) {
+        return;
+      }
+      e.preventDefault();
+      mouseX = e.offsetX;
+      mouseY = e.offsetY;
+      camX = Leo.view.cameraPosX;
+      camY = Leo.view.cameraPosY;
+      scale = Leo.view.scale;
+      chunkW = Leo.view.cameraWidth;
+      chunkH = Leo.view.cameraHeight;
+      tileSize = Leo.background.tileSize;
+      chunkX = ((camX + mouseX / scale / tileSize) / chunkW) >> 0;
+      tileX = (mouseX / scale / tileSize - (chunkX * chunkW - camX)) >> 0;
+      chunkY = ((camY + mouseY / scale / tileSize) / chunkH) >> 0;
+      tileY = (mouseY / scale / tileSize - (chunkY * chunkH - camY)) >> 0;
+      layer = Leo.layers.get('ground');
+      tile = layer.getTile(chunkX, tileX, tileY);
+      if (e.altKey) {
+        return _editTile = tile;
+      } else {
+        return layer.setTile(chunkX, tileX, tileY, _editTile);
+      }
+    });
+    _view.addEventListener('mouseup', function(e) {
+      return e.preventDefault();
+    });
     window.addEventListener('keydown', Leo.event._keydown);
     window.addEventListener('keyup', Leo.event._keyup);
     return window.requestAnimationFrame(Leo.core.cycle);
@@ -78,7 +108,7 @@
     _camH = Leo.view.cameraHeight * Leo.background.tileSize;
     _frameBufferCtx.fillStyle = Leo.background.color;
     _frameBufferCtx.fillRect(0, 0, _view.width, _view.height);
-    _ref = Leo.layers;
+    _ref = Leo.layers.objects;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       layer = _ref[_i];
       layer.draw();
@@ -164,6 +194,30 @@
   };
 
   Leo.sprite._img = {};
+
+  Leo.layers = {};
+
+  Leo.layers.objects = [];
+
+  Leo.layers.add = function(layerObj) {
+    if (!(layerObj instanceof Layer) || !layerObj.id || Leo.layers.get(layerObj.id)) {
+      return null;
+    }
+    return Leo.layers.objects.push(layerObj);
+  };
+
+  Leo.layers.get = function(id) {
+    var layerObj, _i, _len, _ref;
+
+    _ref = Leo.layers.objects;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      layerObj = _ref[_i];
+      if (layerObj.id === id) {
+        return layerObj;
+      }
+    }
+    return null;
+  };
 
   Leo.util = {};
 
@@ -704,6 +758,7 @@
         return;
       }
       if (chunk.drawBufferDirty) {
+        chunk.drawBufferCtx.clearRect(0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height);
         _ref = chunk.tiles;
         for (x = _i = 0, _len = _ref.length; _i < _len; x = ++_i) {
           column = _ref[x];
@@ -722,6 +777,29 @@
         return;
       }
       return ctx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX >> 0, posY >> 0, this.tileSize, this.tileSize);
+    };
+
+    Layer.prototype.getTile = function(chunkX, tileX, tileY) {
+      var chunk, column, tile, x, y;
+
+      chunk = this.chunks[chunkX];
+      x = tileX - chunk.tileOffsetX;
+      y = (tileY - chunk.tileOffsetY) * 2;
+      column = chunk.tiles[x];
+      tile = [column[y], column[y + 1]];
+      return tile;
+    };
+
+    Layer.prototype.setTile = function(chunkX, tileX, tileY, tile) {
+      var chunk, column, x, y;
+
+      chunk = this.chunks[chunkX];
+      chunk.drawBufferDirty = true;
+      x = tileX - chunk.tileOffsetX;
+      y = (tileY - chunk.tileOffsetY) * 2;
+      column = chunk.tiles[x];
+      column[y] = tile[0];
+      return column[y + 1] = tile[1];
     };
 
     return Layer;
@@ -779,8 +857,8 @@
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
     };
-    Leo.layers.push(new Leo.Layer({
-      name: 'mountains',
+    Leo.layers.add(new Leo.Layer({
+      id: 'mountains',
       spritesheet: 'sprite-background.png',
       isLooping: true,
       parallax: 0.5,
@@ -795,8 +873,8 @@
         }
       ]
     }));
-    Leo.layers.push(new Leo.Layer({
-      name: 'cloud 1',
+    Leo.layers.add(new Leo.Layer({
+      id: 'cloud 1',
       spritesheet: 'sprite-background.png',
       isLooping: true,
       parallax: 0.21,
@@ -811,8 +889,8 @@
         }
       ]
     }));
-    Leo.layers.push(new Leo.Layer({
-      name: 'cloud 2',
+    Leo.layers.add(new Leo.Layer({
+      id: 'cloud 2',
       spritesheet: 'sprite-background.png',
       isLooping: true,
       parallax: 0.2,
@@ -827,8 +905,8 @@
         }
       ]
     }));
-    return Leo.layers.push(new Leo.Layer({
-      name: 'ground',
+    return Leo.layers.add(new Leo.Layer({
+      id: 'ground',
       spritesheet: 'sprite-background.png',
       chunks: [
         {
