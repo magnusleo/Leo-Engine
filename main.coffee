@@ -518,7 +518,6 @@ class Layer
     constructor: (properties) ->
         # Defaults
         @spritesheet = '' # Name of the spritesheet file
-        @tileSize = 16 # Pixel size of one tile
         @chunks = [
             chunkOffsetX: 0
             chunkOffsetY: 0
@@ -539,17 +538,12 @@ class Layer
             if not layer.chunks
                 return
             for chunk in layer.chunks
-                chunk.drawBufferDirty = true
+                chunk.redraw()
             return
 
         @layerNumTilesX = 0
-        for chunk in @chunks
-            chunk.drawBuffer = document.createElement 'canvas'
-            chunk.drawBufferCtx = chunk.drawBuffer.getContext '2d'
-            chunk.drawBufferDirty = true
-            chunk.drawBuffer.width = chunk.tiles.length * @tileSize
-            chunk.drawBuffer.height = chunk.tiles[0].length / 2 * @tileSize
-            chunk.tileOffsetXPx = chunk.tileOffsetX * @tileSize
+        for chunk, i in @chunks
+            @chunks[i] = new Chunk(this, chunk)
             @layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX
 
 
@@ -562,57 +556,14 @@ class Layer
             while posX < _camW
                 for chunk in @chunks
                     posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
-                    @drawChunk(chunk, posX, posY)
+                    chunk.draw(posX, posY)
                     posX += chunk.drawBuffer.width + chunk.tileOffsetXPx
         else
             for chunk in @chunks
                 posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
                 posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
-                @drawChunk(chunk, posX, posY)
+                chunk.draw(posX, posY)
         return
-
-
-    drawChunk: (chunk, posX, posY) ->
-        # Don't draw chunks out of view
-        if posX < -chunk.drawBuffer.width or posX > _camW or
-        posY < -chunk.drawBuffer.height or posY > _camH
-            return
-
-        if chunk.drawBufferDirty
-            # Redraw chunk
-            chunk.drawBufferCtx.clearRect(0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height)
-            for column, x in chunk.tiles
-                for tile, y in column by 2
-                    @drawTile chunk.drawBufferCtx,
-                        column[y],
-                        column[y + 1],
-                        x * Leo.background.tileSize,
-                        ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize,
-            chunk.drawBufferDirty = false
-
-        _frameBufferCtx.drawImage chunk.drawBuffer,
-            0, # Source X
-            0, # Source Y
-            chunk.drawBuffer.width, # Source width
-            chunk.drawBuffer.height, # Source height
-            posX, # Destionation X
-            posY, # Destionation Y
-            chunk.drawBuffer.width, # Destination width
-            chunk.drawBuffer.height, # Destination height
-
-
-    drawTile: (ctx, spriteX, spriteY, posX, posY) ->
-        if spriteX == -1 or spriteY == -1 then return
-
-        ctx.drawImage @spriteImg,
-            spriteX * @tileSize,
-            spriteY * @tileSize,
-            @tileSize, # Source width
-            @tileSize, # Source height
-            posX >> 0,
-            posY >> 0,
-            @tileSize, # Destination width
-            @tileSize, # Destination height
 
 
     getTile: (chunkX, tileX, tileY) ->
@@ -632,6 +583,69 @@ class Layer
         column = chunk.tiles[x]
         column[y] = tile[0]
         column[y + 1] = tile[1]
+
+
+
+Leo.Chunk =
+class Chunk
+    constructor: (layer, data) ->
+        for name, datum of data
+            this[name] = datum
+
+        @layer = layer
+
+        @drawBuffer = document.createElement 'canvas'
+        @drawBufferCtx = @drawBuffer.getContext '2d'
+        @drawBufferDirty = true
+        @drawBuffer.width = @tiles.length * Leo.background.tileSize
+        @drawBuffer.height = @tiles[0].length / 2 * Leo.background.tileSize
+        @tileOffsetXPx = @tileOffsetX * Leo.background.tileSize
+
+    draw: (posX, posY) ->
+        # Don't draw chunks out of view
+        if posX < -@drawBuffer.width or posX > _camW or
+        posY < -@drawBuffer.height or posY > _camH
+            return
+
+        if @drawBufferDirty
+            # Redraw chunk
+            @drawBufferCtx.clearRect(0, 0, @drawBuffer.width, @drawBuffer.height)
+            for column, x in @tiles
+                for tile, y in column by 2
+                    @drawTile @drawBufferCtx,
+                        column[y],
+                        column[y + 1],
+                        x * Leo.background.tileSize,
+                        ((y >> 1) + @chunkOffsetY) * Leo.background.tileSize,
+            @drawBufferDirty = false
+
+        _frameBufferCtx.drawImage @drawBuffer,
+            0, # Source X
+            0, # Source Y
+            @drawBuffer.width, # Source width
+            @drawBuffer.height, # Source height
+            posX, # Destionation X
+            posY, # Destionation Y
+            @drawBuffer.width, # Destination width
+            @drawBuffer.height, # Destination height
+
+
+    redraw: ->
+        @drawBufferDirty = true
+
+    drawTile: (ctx, spriteX, spriteY, posX, posY) ->
+        if spriteX == -1 or spriteY == -1 then return
+        tileSize = Leo.background.tileSize
+
+        ctx.drawImage @layer.spriteImg,
+            spriteX * tileSize,
+            spriteY * tileSize,
+            tileSize, # Source width
+            tileSize, # Source height
+            posX >> 0,
+            posY >> 0,
+            tileSize, # Destination width
+            tileSize, # Destination height
 
 
 

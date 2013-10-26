@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
+  var Actor, Chunk, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -675,10 +675,9 @@
 
   Leo.Layer = Layer = (function() {
     function Layer(properties) {
-      var chunk, key, layer, val, _i, _len, _ref;
+      var chunk, i, key, layer, val, _i, _len, _ref;
 
       this.spritesheet = '';
-      this.tileSize = 16;
       this.chunks = [
         {
           chunkOffsetX: 0,
@@ -706,19 +705,14 @@
         _ref = layer.chunks;
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           chunk = _ref[_i];
-          chunk.drawBufferDirty = true;
+          chunk.redraw();
         }
       });
       this.layerNumTilesX = 0;
       _ref = this.chunks;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        chunk = _ref[_i];
-        chunk.drawBuffer = document.createElement('canvas');
-        chunk.drawBufferCtx = chunk.drawBuffer.getContext('2d');
-        chunk.drawBufferDirty = true;
-        chunk.drawBuffer.width = chunk.tiles.length * this.tileSize;
-        chunk.drawBuffer.height = chunk.tiles[0].length / 2 * this.tileSize;
-        chunk.tileOffsetXPx = chunk.tileOffsetX * this.tileSize;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        chunk = _ref[i];
+        this.chunks[i] = new Chunk(this, chunk);
         this.layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX;
       }
     }
@@ -736,7 +730,7 @@
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             chunk = _ref[_i];
             posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
-            this.drawChunk(chunk, posX, posY);
+            chunk.draw(posX, posY);
             posX += chunk.drawBuffer.width + chunk.tileOffsetXPx;
           }
         }
@@ -746,37 +740,9 @@
           chunk = _ref1[_j];
           posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * this.parallax) >> 0;
           posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
-          this.drawChunk(chunk, posX, posY);
+          chunk.draw(posX, posY);
         }
       }
-    };
-
-    Layer.prototype.drawChunk = function(chunk, posX, posY) {
-      var column, tile, x, y, _i, _j, _len, _len1, _ref;
-
-      if (posX < -chunk.drawBuffer.width || posX > _camW || posY < -chunk.drawBuffer.height || posY > _camH) {
-        return;
-      }
-      if (chunk.drawBufferDirty) {
-        chunk.drawBufferCtx.clearRect(0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height);
-        _ref = chunk.tiles;
-        for (x = _i = 0, _len = _ref.length; _i < _len; x = ++_i) {
-          column = _ref[x];
-          for (y = _j = 0, _len1 = column.length; _j < _len1; y = _j += 2) {
-            tile = column[y];
-            this.drawTile(chunk.drawBufferCtx, column[y], column[y + 1], x * Leo.background.tileSize, ((y >> 1) + chunk.chunkOffsetY) * Leo.background.tileSize);
-          }
-        }
-        chunk.drawBufferDirty = false;
-      }
-      return _frameBufferCtx.drawImage(chunk.drawBuffer, 0, 0, chunk.drawBuffer.width, chunk.drawBuffer.height, posX, posY, chunk.drawBuffer.width, chunk.drawBuffer.height);
-    };
-
-    Layer.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
-      if (spriteX === -1 || spriteY === -1) {
-        return;
-      }
-      return ctx.drawImage(this.spriteImg, spriteX * this.tileSize, spriteY * this.tileSize, this.tileSize, this.tileSize, posX >> 0, posY >> 0, this.tileSize, this.tileSize);
     };
 
     Layer.prototype.getTile = function(chunkX, tileX, tileY) {
@@ -803,6 +769,62 @@
     };
 
     return Layer;
+
+  })();
+
+  Leo.Chunk = Chunk = (function() {
+    function Chunk(layer, data) {
+      var datum, name;
+
+      for (name in data) {
+        datum = data[name];
+        this[name] = datum;
+      }
+      this.layer = layer;
+      this.drawBuffer = document.createElement('canvas');
+      this.drawBufferCtx = this.drawBuffer.getContext('2d');
+      this.drawBufferDirty = true;
+      this.drawBuffer.width = this.tiles.length * Leo.background.tileSize;
+      this.drawBuffer.height = this.tiles[0].length / 2 * Leo.background.tileSize;
+      this.tileOffsetXPx = this.tileOffsetX * Leo.background.tileSize;
+    }
+
+    Chunk.prototype.draw = function(posX, posY) {
+      var column, tile, x, y, _i, _j, _len, _len1, _ref;
+
+      if (posX < -this.drawBuffer.width || posX > _camW || posY < -this.drawBuffer.height || posY > _camH) {
+        return;
+      }
+      if (this.drawBufferDirty) {
+        this.drawBufferCtx.clearRect(0, 0, this.drawBuffer.width, this.drawBuffer.height);
+        _ref = this.tiles;
+        for (x = _i = 0, _len = _ref.length; _i < _len; x = ++_i) {
+          column = _ref[x];
+          for (y = _j = 0, _len1 = column.length; _j < _len1; y = _j += 2) {
+            tile = column[y];
+            this.drawTile(this.drawBufferCtx, column[y], column[y + 1], x * Leo.background.tileSize, ((y >> 1) + this.chunkOffsetY) * Leo.background.tileSize);
+          }
+        }
+        this.drawBufferDirty = false;
+      }
+      return _frameBufferCtx.drawImage(this.drawBuffer, 0, 0, this.drawBuffer.width, this.drawBuffer.height, posX, posY, this.drawBuffer.width, this.drawBuffer.height);
+    };
+
+    Chunk.prototype.redraw = function() {
+      return this.drawBufferDirty = true;
+    };
+
+    Chunk.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
+      var tileSize;
+
+      if (spriteX === -1 || spriteY === -1) {
+        return;
+      }
+      tileSize = Leo.background.tileSize;
+      return ctx.drawImage(this.layer.spriteImg, spriteX * tileSize, spriteY * tileSize, tileSize, tileSize, posX >> 0, posY >> 0, tileSize, tileSize);
+    };
+
+    return Chunk;
 
   })();
 
