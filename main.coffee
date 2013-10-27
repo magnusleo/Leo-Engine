@@ -221,7 +221,7 @@ Leo.util.KEY_CODES = {'BACKSPACE':8,'TAB':9,'ENTER':13,'SHIFT':16,'CTRL':17,'ALT
 Leo.Actor =
 class Actor
 
-    constructor: (properties) ->
+    constructor: (properties) -> # Actor::constructor
         # Defaults
         @spritesheet = '' # Name of the spritesheet file
         @animations =
@@ -250,7 +250,7 @@ class Actor
         @spriteImg = Leo.sprite.getImg @spritesheet
 
 
-    draw: ->
+    draw: -> # Actor::draw
         frame = @animations[@animName].frames[@animFrame]
         _frameBufferCtx.drawImage @spriteImg,
             frame[0], # Source x
@@ -263,13 +263,13 @@ class Actor
             frame[3], # Destination height
 
 
-    setAnimation: (animName = '', animFrame = 0) ->
+    setAnimation: (animName = '', animFrame = 0) -> # Actor::setAnimation
         @animFrame = animFrame
         @animFrameTimeLeft = @animations[animName].frames[0][6]
         @animName = animName
 
 
-    advanceAnimation: (cycleLengthMs) ->
+    advanceAnimation: (cycleLengthMs) -> # Actor::advanceAnimation
         animation = @animations[@animName]
         maxFrame = animation.frames.length - 1
         if @animFrame > maxFrame then @animFrame = maxFrame
@@ -281,7 +281,7 @@ class Actor
             @animFrameTimeLeft = animation.frames[@animFrame][6] + @animFrameTimeLeft
 
 
-    update: (cycleLengthMs) ->
+    update: (cycleLengthMs) -> # Actor::update
         # Animation
         @advanceAnimation cycleLengthMs
 
@@ -294,7 +294,7 @@ class Actor
 Leo.Player =
 class Player extends Actor
 
-    constructor: (data) ->
+    constructor: (data) -> # Player::constructor
         super(data)
         Leo.actors.push this
 
@@ -302,18 +302,18 @@ class Player extends Actor
         @stateBefore = null
 
 
-    setState: (state) ->
+    setState: (state) -> # Player::setState
         if @state is state
             return
         @stateBefore = @state
         @state = new state(this)
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # Player::handleInput
         @state.handleInput(e)
 
 
-    update: (cycleLengthMs) ->
+    update: (cycleLengthMs) -> # Player::update
         @speedY += Leo.environment.gravity * cycleLengthMs * 0.001
 
         super(cycleLengthMs)
@@ -336,10 +336,10 @@ class Player extends Actor
 Leo.PlayerState =
 class PlayerState
 
-    constructor: (@parent) ->
+    constructor: (@parent) -> # PlayerState::constructor
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerState::handleInput
         key = Leo.util.KEY_CODES
         switch e.keyCode
 
@@ -350,18 +350,18 @@ class PlayerState
                 @parent.direction = 1
 
 
-    update: (cycleLengthMs) ->
+    update: (cycleLengthMs) -> # PlayerState::update
 
 
 
 Leo.PlayerStateGround =
 class PlayerStateGround extends PlayerState
 
-    constructor: (data) ->
+    constructor: (data) -> # PlayerStateGround::constructor
         super(data)
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerStateGround::handleInput
         super(e)
         key = Leo.util.KEY_CODES
 
@@ -375,7 +375,7 @@ class PlayerStateGround extends PlayerState
 Leo.PlayerStateStanding =
 class PlayerStateStanding extends PlayerStateGround
 
-    constructor: (data) ->
+    constructor: (data) -> # PlayerStateStanding::constructor
         super(data)
 
         @parent.speedX = 0
@@ -386,7 +386,7 @@ class PlayerStateStanding extends PlayerStateGround
             @parent.setAnimation 'standingLeft'
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerStateStanding::handleInput
         super(e)
         key = Leo.util.KEY_CODES
 
@@ -400,7 +400,7 @@ class PlayerStateStanding extends PlayerStateGround
 Leo.PlayerStateRunning =
 class PlayerStateRunning extends PlayerStateGround
 
-    constructor: (data) ->
+    constructor: (data) -> # PlayerStateRunning::constructor
         super(data)
         @_setSpeedAndAnim()
 
@@ -408,7 +408,7 @@ class PlayerStateRunning extends PlayerStateGround
             @parent.animFrame = 1
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerStateRunning::handleInput
         super(e)
         key = Leo.util.KEY_CODES
 
@@ -432,7 +432,7 @@ class PlayerStateRunning extends PlayerStateGround
                         @_setSpeedAndAnim { animFrame: 1 }
 
 
-    _setSpeedAndAnim: (options = {})->
+    _setSpeedAndAnim: (options = {})-> # PlayerStateRunning::_setSpeedAndAnim
         @parent.speedX = 0.15 * @parent.direction
         if @parent.direction > 0
             @parent.setAnimation 'runningRight', options.animFrame
@@ -443,15 +443,15 @@ class PlayerStateRunning extends PlayerStateGround
 Leo.PlayerStateAir =
 class PlayerStateAir extends PlayerState
 
-    constructor: (data) ->
+    constructor: (data) -> # PlayerStateAir::constructor
         super(data)
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerStateAir::handleInput
         super(e)
 
 
-    update: (cycleLengthMs) ->
+    update: (cycleLengthMs) -> # PlayerStateAir::update
         super(cycleLengthMs)
         if @parent.posY >= 12 #Debug
             if @parent.speedX == 0
@@ -464,7 +464,7 @@ class PlayerStateAir extends PlayerState
 Leo.PlayerStateJumping =
 class PlayerStateJumping extends PlayerStateAir
 
-    constructor: (data) ->
+    constructor: (data) -> # PlayerStateJumping::constructor
         super(data)
 
         @parent.speedY = -0.35
@@ -475,7 +475,7 @@ class PlayerStateJumping extends PlayerStateAir
             @parent.setAnimation 'jumpingLeft'
 
 
-    handleInput: (e) ->
+    handleInput: (e) -> # PlayerStateJumping::handleInput
         super(e)
         key = Leo.util.KEY_CODES
 
@@ -504,7 +504,7 @@ class PlayerStateJumping extends PlayerStateAir
                         @_setSpeedAndAnim()
 
 
-    _setSpeedAndAnim: ->
+    _setSpeedAndAnim: -> # PlayerStateJumping::_setSpeedAndAnim
         @parent.speedX = 0.15 * @parent.direction
         if @parent.direction > 0
             @parent.setAnimation 'jumpingRight'
@@ -515,7 +515,7 @@ class PlayerStateJumping extends PlayerStateAir
 
 Leo.Layer =
 class Layer
-    constructor: (properties) ->
+    constructor: (properties) -> # Layer::constructor
         # Defaults
         @spritesheet = '' # Name of the spritesheet file
         @chunks = [
@@ -547,7 +547,7 @@ class Layer
             @layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX
 
 
-    draw: ->
+    draw: -> # Layer::draw
         if @isLooping
             chunk = @chunks[0]
             posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
@@ -566,7 +566,7 @@ class Layer
         return
 
 
-    getTile: (chunkX, tileX, tileY) ->
+    getTile: (chunkX, tileX, tileY) -> # Layer::getTile
         chunk = @chunks[chunkX]
         x = tileX - chunk.tileOffsetX
         y = (tileY - chunk.tileOffsetY) * 2
@@ -575,7 +575,7 @@ class Layer
         return tile
 
 
-    setTile: (chunkX, tileX, tileY, tile) ->
+    setTile: (chunkX, tileX, tileY, tile) -> # Layer::setTile
         chunk = @chunks[chunkX]
         chunk.drawBufferDirty = true
         x = tileX - chunk.tileOffsetX
@@ -588,7 +588,7 @@ class Layer
 
 Leo.Chunk =
 class Chunk
-    constructor: (layer, data) ->
+    constructor: (layer, data) -> # Chunk::constructor
         for name, datum of data
             this[name] = datum
 
@@ -601,7 +601,7 @@ class Chunk
         @drawBuffer.height = @tiles[0].length / 2 * Leo.background.tileSize
         @tileOffsetXPx = @tileOffsetX * Leo.background.tileSize
 
-    draw: (posX, posY) ->
+    draw: (posX, posY) -> # Chunk::draw
         # Don't draw chunks out of view
         if posX < -@drawBuffer.width or posX > _camW or
         posY < -@drawBuffer.height or posY > _camH
@@ -634,10 +634,10 @@ class Chunk
             @drawBuffer.height, # Destination height
 
 
-    redraw: ->
+    redraw: -> # Chunk::redraw
         @drawBufferDirty = true
 
-    drawTile: (ctx, spriteX, spriteY, posX, posY) ->
+    drawTile: (ctx, spriteX, spriteY, posX, posY) -> # Chunk::drawTile
         if spriteX == -1 or spriteY == -1 then return
         tileSize = Leo.background.tileSize
 
