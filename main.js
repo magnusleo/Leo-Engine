@@ -790,18 +790,17 @@
     }
 
     Chunk.prototype.draw = function(posX, posY) {
-      var i, n, x, y, _i, _ref;
+      var i, x, y, _i, _ref;
 
       if (posX < -this.drawBuffer.width || posX > _camW || posY < -this.drawBuffer.height || posY > _camH) {
         return;
       }
       if (this.drawBufferDirty) {
         this.drawBufferCtx.clearRect(0, 0, this.drawBuffer.width, this.drawBuffer.height);
-        for (i = _i = 0, _ref = this.tiles.length / 2 - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-          n = i * 2;
+        for (i = _i = 0, _ref = this.tiles.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
           x = i % this.width;
           y = (i / this.width) >> 0;
-          this.drawTile(this.drawBufferCtx, this.tiles[n], this.tiles[n + 1], x * Leo.background.tileSize, (y + this.chunkOffsetY) * Leo.background.tileSize);
+          this.drawTile(this.drawBufferCtx, this.tiles[i], x * Leo.background.tileSize, (y + this.chunkOffsetY) * Leo.background.tileSize);
         }
         this.drawBufferDirty = false;
       }
@@ -812,13 +811,16 @@
       return this.drawBufferDirty = true;
     };
 
-    Chunk.prototype.drawTile = function(ctx, spriteX, spriteY, posX, posY) {
-      var tileSize;
+    Chunk.prototype.drawTile = function(ctx, spriteN, posX, posY) {
+      var spriteWidth, spriteX, spriteY, tileSize;
 
       if (spriteX === -1 || spriteY === -1) {
         return;
       }
       tileSize = Leo.background.tileSize;
+      spriteWidth = 16;
+      spriteX = spriteN % spriteWidth;
+      spriteY = (spriteN / spriteWidth) >> 0;
       return ctx.drawImage(this.layer.spriteImg, spriteX * tileSize, spriteY * tileSize, tileSize, tileSize, posX >> 0, posY >> 0, tileSize, tileSize);
     };
 
@@ -835,10 +837,6 @@
       switch (e.keyCode) {
         case key.R:
           return window.location.reload();
-        case key.S:
-          return console.log(Leo.layers.get('ground').chunks[0].serialize());
-        case key.L:
-          return console.log(Leo.layers.get('ground').chunks[0].deserialize());
         default:
           return Leo.player.handleInput(e);
       }
@@ -893,7 +891,7 @@
           colBoxes: [],
           tileOffsetX: 0,
           tileOffsetY: 10,
-          tiles: [-1, -1, 5, 0, 6, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 4, 1, 5, 1, 6, 1, 7, 1, -1, -1, -1, -1, -1, -1, 11, 1, 12, 1, -1, -1, 4, 2, 5, 2, 6, 2, 7, 2, 8, 2, -1, -1, 10, 2, 11, 2, 12, 2, 13, 2, 4, 3, 5, 3, 6, 3, 7, 3, 8, 3, 9, 3, 10, 3, 11, 3, 12, 3, 13, 3, 4, 4, 5, 4, 6, 4, 7, 4, 8, 4, 9, 4, 10, 4, 11, 4, 12, 4, 13, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 0, 8, 0, 9, 0, 10, 0, 11, 0, 7, 0, 8, 0, 9, 0, 10, 0, 11, 0],
+          tiles: [-1, 5, 6, -1, -1, -1, -1, -1, -1, -1, 20, 21, 22, 23, -1, -1, -1, 27, 28, -1, 36, 37, 38, 39, 40, -1, 42, 43, 44, 45, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11],
           width: 10
         }
       ]
@@ -910,7 +908,7 @@
           colBoxes: [],
           tileOffsetX: 30,
           tileOffsetY: 3,
-          tiles: [0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 1, 1, 2, 1, 3, 1],
+          tiles: [0, 1, 2, 3, 16, 17, 18, 19],
           width: 4
         }
       ]
@@ -927,7 +925,7 @@
           colBoxes: [],
           tileOffsetX: 29,
           tileOffsetY: 5,
-          tiles: [0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 1, 1, 2, 1, 3, 1],
+          tiles: [0, 1, 2, 3, 16, 17, 18, 19],
           width: 4
         }
       ]
@@ -942,7 +940,7 @@
           colBoxes: [],
           tileOffsetX: 0,
           tileOffsetY: 13,
-          tiles: [-1, -1, -1, -1, -1, -1, 4, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 3, 2, 0, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 3, 3, 0, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 3, 3],
+          tiles: [-1, -1, -1, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 32, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 35, 48, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 51, 48, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 51],
           width: 30
         }, {
           chunkOffsetX: 30,
@@ -950,7 +948,7 @@
           colBoxes: [],
           tileOffsetX: 0,
           tileOffsetY: 13,
-          tiles: [-1, -1, -1, -1, -1, -1, 4, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 3, 2, 0, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 3, 3, 0, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 2, 3, 1, 3, 3, 3],
+          tiles: [-1, -1, -1, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 32, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 35, 48, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 51, 48, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 50, 49, 51],
           width: 30
         }
       ]
