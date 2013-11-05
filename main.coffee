@@ -140,6 +140,9 @@ Leo.core.cycle = ->
 
     Leo.cycleCallback()
 
+Leo.core.DATA_TYPES =
+    CHUNK: 0
+
 
 Leo.cycleCallback = -> # Override Leo.cycleCallback with your own function
 
@@ -154,6 +157,17 @@ Leo.event._keydown = (e) ->
     keyIndex = _pressedKeys.indexOf e.keyCode
     if keyIndex is -1
         _pressedKeys.push e.keyCode
+
+        key = Leo.util.KEY_CODES
+        switch e.keyCode
+            when key.S
+                data = Leo.layers.get('ground').serialize()
+                localStorage.setItem('ground', data)
+
+            when key.L
+                data = localStorage.getItem('ground')
+                Leo.layers.get('ground').deserialize(data)
+
         Leo.event.keydown e
 
 Leo.event.keydown = (e) ->
@@ -569,26 +583,57 @@ class Layer
     getTile: (chunkX, tileX, tileY) -> # Layer::getTile
         chunk = @chunks[chunkX]
         x = tileX - chunk.tileOffsetX
-        y = (tileY - chunk.tileOffsetY) * 2
-        column = chunk.tiles[x]
-        tile = [column[y], column[y + 1]]
-        return tile
+        y = tileY - chunk.tileOffsetY
+        return chunk.tiles[x + y * chunk.width]
 
 
     setTile: (chunkX, tileX, tileY, tile) -> # Layer::setTile
         chunk = @chunks[chunkX]
         chunk.drawBufferDirty = true
         x = tileX - chunk.tileOffsetX
-        y = (tileY - chunk.tileOffsetY) * 2
-        column = chunk.tiles[x]
-        column[y] = tile[0]
-        column[y + 1] = tile[1]
+        y = tileY - chunk.tileOffsetY
+        chunk.tiles[x + y * chunk.width] = tile
+
+
+    serialize: -> # Layer::serialize
+        # Data format:
+        # {type}{length}{data}...
+        data = ''
+        for chunk in @chunks
+            data += String.fromCharCode(Leo.core.DATA_TYPES.CHUNK)
+            chunkData = chunk.serialize()
+            data += String.fromCharCode(chunkData.length) + chunkData
+        return data
+
+
+    deserialize: (data) -> # Layer::deserialize
+        chunkOffsetX = 0
+        @chunks.length = 0
+        t = Leo.core.DATA_TYPES
+        i = 0
+        while i < data.length
+            length = data.charCodeAt(i + 1)
+            switch data.charCodeAt(i)
+                when t.CHUNK
+                    #TODO: Store and read chunk metadata
+                    numChunks = @chunks.push new Chunk this,
+                        width: 30
+                        height: 17
+                        chunkOffsetX: chunkOffsetX
+                        chunkOffsetY: 0
+                        tileOffsetX: 0
+                        tileOffsetY: 13
+                    @chunks[numChunks - 1].deserialize(data.substr(i + 2, length))
+                    chunkOffsetX += 30
+            i += 2 + length
+
 
 
 
 Leo.Chunk =
 class Chunk
     constructor: (layer, data) -> # Chunk::constructor
+        @tiles = []
         for name, datum of data
             this[name] = datum
 
@@ -634,6 +679,7 @@ class Chunk
     redraw: -> # Chunk::redraw
         @drawBufferDirty = true
 
+
     drawTile: (ctx, spriteN, posX, posY) -> # Chunk::drawTile
         if spriteX == -1 or spriteY == -1 then return
         tileSize = Leo.background.tileSize
@@ -650,6 +696,23 @@ class Chunk
             posY >> 0,
             tileSize, # Destination width
             tileSize, # Destination height
+
+
+    serialize: -> # Chunk::serialize
+        data = ''
+        for tile in @tiles
+            data += String.fromCharCode(tile + 1) # +1 to make -1 -> 0. We can't store negative numbers.
+        return data
+        #TODO: Compress consecutive identical tiles
+
+
+    deserialize: (data) -> # Chunk::deserialize
+        @drawBufferDirty = true
+        @tiles.length = 0
+        for i in [0..data.length]
+            @tiles.push data.charCodeAt(i) - 1  # -1 to reverse +1 from Chunk::serialize
+        @drawBuffer.height = ((@tiles.length / @width) >> 0) * Leo.background.tileSize
+
 
 
 

@@ -139,17 +139,31 @@
     return Leo.cycleCallback();
   };
 
+  Leo.core.DATA_TYPES = {
+    CHUNK: 0
+  };
+
   Leo.cycleCallback = function() {};
 
   Leo.event = {};
 
   Leo.event._keydown = function(e) {
-    var keyIndex;
+    var data, key, keyIndex;
 
     e.preventDefault();
     keyIndex = _pressedKeys.indexOf(e.keyCode);
     if (keyIndex === -1) {
       _pressedKeys.push(e.keyCode);
+      key = Leo.util.KEY_CODES;
+      switch (e.keyCode) {
+        case key.S:
+          data = Leo.layers.get('ground').serialize();
+          localStorage.setItem('ground', data);
+          break;
+        case key.L:
+          data = localStorage.getItem('ground');
+          Leo.layers.get('ground').deserialize(data);
+      }
       return Leo.event.keydown(e);
     }
   };
@@ -746,26 +760,64 @@
     };
 
     Layer.prototype.getTile = function(chunkX, tileX, tileY) {
-      var chunk, column, tile, x, y;
+      var chunk, x, y;
 
       chunk = this.chunks[chunkX];
       x = tileX - chunk.tileOffsetX;
-      y = (tileY - chunk.tileOffsetY) * 2;
-      column = chunk.tiles[x];
-      tile = [column[y], column[y + 1]];
-      return tile;
+      y = tileY - chunk.tileOffsetY;
+      return chunk.tiles[x + y * chunk.width];
     };
 
     Layer.prototype.setTile = function(chunkX, tileX, tileY, tile) {
-      var chunk, column, x, y;
+      var chunk, x, y;
 
       chunk = this.chunks[chunkX];
       chunk.drawBufferDirty = true;
       x = tileX - chunk.tileOffsetX;
-      y = (tileY - chunk.tileOffsetY) * 2;
-      column = chunk.tiles[x];
-      column[y] = tile[0];
-      return column[y + 1] = tile[1];
+      y = tileY - chunk.tileOffsetY;
+      return chunk.tiles[x + y * chunk.width] = tile;
+    };
+
+    Layer.prototype.serialize = function() {
+      var chunk, chunkData, data, _i, _len, _ref;
+
+      data = '';
+      _ref = this.chunks;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        chunk = _ref[_i];
+        data += String.fromCharCode(Leo.core.DATA_TYPES.CHUNK);
+        chunkData = chunk.serialize();
+        data += String.fromCharCode(chunkData.length) + chunkData;
+      }
+      return data;
+    };
+
+    Layer.prototype.deserialize = function(data) {
+      var chunkOffsetX, i, length, numChunks, t, _results;
+
+      chunkOffsetX = 0;
+      this.chunks.length = 0;
+      t = Leo.core.DATA_TYPES;
+      i = 0;
+      _results = [];
+      while (i < data.length) {
+        length = data.charCodeAt(i + 1);
+        switch (data.charCodeAt(i)) {
+          case t.CHUNK:
+            numChunks = this.chunks.push(new Chunk(this, {
+              width: 30,
+              height: 17,
+              chunkOffsetX: chunkOffsetX,
+              chunkOffsetY: 0,
+              tileOffsetX: 0,
+              tileOffsetY: 13
+            }));
+            this.chunks[numChunks - 1].deserialize(data.substr(i + 2, length));
+            chunkOffsetX += 30;
+        }
+        _results.push(i += 2 + length);
+      }
+      return _results;
     };
 
     return Layer;
@@ -776,6 +828,7 @@
     function Chunk(layer, data) {
       var datum, name;
 
+      this.tiles = [];
       for (name in data) {
         datum = data[name];
         this[name] = datum;
@@ -822,6 +875,29 @@
       spriteX = spriteN % spriteWidth;
       spriteY = (spriteN / spriteWidth) >> 0;
       return ctx.drawImage(this.layer.spriteImg, spriteX * tileSize, spriteY * tileSize, tileSize, tileSize, posX >> 0, posY >> 0, tileSize, tileSize);
+    };
+
+    Chunk.prototype.serialize = function() {
+      var data, tile, _i, _len, _ref;
+
+      data = '';
+      _ref = this.tiles;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        tile = _ref[_i];
+        data += String.fromCharCode(tile + 1);
+      }
+      return data;
+    };
+
+    Chunk.prototype.deserialize = function(data) {
+      var i, _i, _ref;
+
+      this.drawBufferDirty = true;
+      this.tiles.length = 0;
+      for (i = _i = 0, _ref = data.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        this.tiles.push(data.charCodeAt(i) - 1);
+      }
+      return this.drawBuffer.height = ((this.tiles.length / this.width) >> 0) * Leo.background.tileSize;
     };
 
     return Chunk;
