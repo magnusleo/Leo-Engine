@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Chunk, Layer, Leo, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _view, _viewCtx,
+  var Actor, Chunk, Layer, Leo, Line, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, Rect, Shape, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _ref, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -30,7 +30,7 @@
 
   _camH = 0;
 
-  _editTile = [-1, -1];
+  _editTile = -1;
 
   Leo.environment = {
     gravity: 1.0
@@ -46,12 +46,27 @@
     cameraHeight: 17
   };
 
+  Leo.view.posToPx = function(posX, axis, parallax) {
+    if (parallax == null) {
+      parallax = 1.0;
+    }
+    return ((posX - Leo.view['cameraPos' + axis.toUpperCase()]) * Leo.background.tileSize * parallax) >> 0;
+  };
+
+  Leo.view.drawOnceQue = [];
+
+  Leo.view.drawOnce = function(data) {
+    return Leo.view.drawOnceQue.push(data);
+  };
+
   Leo.background = {
     tileSize: 16,
     color: '#6ec0ff'
   };
 
   Leo.actors = [];
+
+  Leo.shapes = [];
 
   Leo.core = {};
 
@@ -65,7 +80,7 @@
     _viewCtx = _view.getContext('2d');
     _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false;
     _view.addEventListener('mousedown', function(e) {
-      var camX, camY, chunkH, chunkW, chunkX, chunkY, layer, mouseX, mouseY, scale, tile, tileSize, tileX, tileY;
+      var camX, camY, layer, mouseX, mouseY, scale, tile, tileSize, tileX, tileY;
 
       if (e.button !== 0) {
         return;
@@ -76,19 +91,16 @@
       camX = Leo.view.cameraPosX;
       camY = Leo.view.cameraPosY;
       scale = Leo.view.scale;
-      chunkW = Leo.view.cameraWidth;
-      chunkH = Leo.view.cameraHeight;
       tileSize = Leo.background.tileSize;
-      chunkX = ((camX + mouseX / scale / tileSize) / chunkW) >> 0;
-      tileX = (mouseX / scale / tileSize - (chunkX * chunkW - camX)) >> 0;
-      chunkY = ((camY + mouseY / scale / tileSize) / chunkH) >> 0;
-      tileY = (mouseY / scale / tileSize - (chunkY * chunkH - camY)) >> 0;
+      tileX = (mouseX / scale / tileSize + camX) >> 0;
+      tileY = (mouseY / scale / tileSize + camY) >> 0;
       layer = Leo.layers.get('ground');
-      tile = layer.getTile(chunkX, tileX, tileY);
+      tile = layer.getTile(tileX, tileY);
+      console.log(tileX, tileY);
       if (e.altKey) {
         return _editTile = tile;
       } else {
-        return layer.setTile(chunkX, tileX, tileY, _editTile);
+        return layer.setTile(tileX, tileY, _editTile);
       }
     });
     _view.addEventListener('mouseup', function(e) {
@@ -100,8 +112,11 @@
   };
 
   Leo.core.draw = function() {
-    var actor, layer, _i, _j, _len, _len1, _ref, _ref1;
+    var actor, layer, name, shape, so, val, _i, _j, _k, _len, _len1, _len2, _name, _ref, _ref1, _ref2, _ref3;
 
+    if (Leo.util.documentHidden()) {
+      return;
+    }
     _camX = Leo.view.cameraPosX * Leo.background.tileSize;
     _camY = Leo.view.cameraPosY * Leo.background.tileSize;
     _camW = Leo.view.cameraWidth * Leo.background.tileSize;
@@ -118,16 +133,30 @@
       actor = _ref1[_j];
       actor.draw();
     }
+    _ref2 = Leo.shapes;
+    for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+      shape = _ref2[_k];
+      shape.draw();
+    }
+    while (so = Leo.view.drawOnceQue.pop()) {
+      shape = (_ref3 = Leo[_name = 'drawOnce' + so.shape]) != null ? _ref3 : Leo[_name] = new Leo[so.shape]();
+      for (name in so) {
+        val = so[name];
+        shape[name] = val;
+      }
+      shape.isVisible = true;
+      shape.draw();
+      shape.isVisible = false;
+    }
     return _viewCtx.drawImage(_frameBuffer, 0, 0, _frameBuffer.width * Leo.view.scale, _frameBuffer.height * Leo.view.scale);
   };
 
   Leo.core.cycle = function() {
-    var actor, cycleLengthMs, cycleLengthS, thisFrameTime, _i, _len, _ref;
+    var actor, cycleLengthMs, thisFrameTime, _i, _len, _ref;
 
     thisFrameTime = Date.now();
-    cycleLengthMs = thisFrameTime - _latestFrameTime;
-    cycleLengthS = cycleLengthMs * 0.001;
-    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS;
+    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 500);
+    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001;
     _ref = Leo.actors;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       actor = _ref[_i];
@@ -136,7 +165,7 @@
     Leo.core.draw();
     _latestFrameTime = thisFrameTime;
     window.requestAnimationFrame(Leo.core.cycle);
-    return Leo.cycleCallback();
+    return Leo.cycleCallback(cycleLengthMs);
   };
 
   Leo.core.DATA_TYPES = {
@@ -150,7 +179,9 @@
   Leo.event._keydown = function(e) {
     var data, key, keyIndex;
 
-    e.preventDefault();
+    if (!(e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+    }
     keyIndex = _pressedKeys.indexOf(e.keyCode);
     if (keyIndex === -1) {
       _pressedKeys.push(e.keyCode);
@@ -348,6 +379,127 @@
     '\'': 222
   };
 
+  Leo.util.documentHidden = function() {
+    var i, vendor, vendors, _i, _len;
+
+    vendors = ['ms', 'moz', 'webkit', 'o'];
+    i = 0;
+    if (document.hidden != null) {
+      return document.hidden;
+    }
+    for (_i = 0, _len = vendors.length; _i < _len; _i++) {
+      vendor = vendors[_i];
+      if (typeof document[vendor + 'Hidden'] !== 'undefined') {
+        return document[vendor + 'Hidden'];
+      }
+    }
+    return false;
+  };
+
+  Leo.util.merge = function() {
+    var name, obj, ret, val, _i, _len;
+
+    ret = {};
+    for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+      obj = arguments[_i];
+      if (typeof obj !== 'object' || (obj instanceof Array)) {
+        continue;
+      }
+      for (name in obj) {
+        val = obj[name];
+        ret[name] = val;
+      }
+    }
+    return ret;
+  };
+
+  Leo.Shape = Shape = (function() {
+    function Shape(data) {
+      var defaultData, name, val;
+
+      defaultData = {
+        fillStyle: 'rgba(255,0,0,0.4)',
+        strokeStyle: 'rgba(255,0,0,0.7)',
+        h: 1,
+        w: 1,
+        x: 0,
+        y: 0
+      };
+      data = Leo.util.merge(defaultData, data);
+      for (name in data) {
+        val = data[name];
+        this[name] = val;
+      }
+      Leo.shapes.push(this);
+    }
+
+    Shape.prototype.draw = function() {
+      if (!this.isVisible) {
+        return false;
+      }
+      this.drawX = Leo.view.posToPx(this.x, 'x');
+      this.drawY = Leo.view.posToPx(this.y, 'y');
+      this.drawW = this.w * Leo.background.tileSize;
+      this.drawH = this.h * Leo.background.tileSize;
+      _frameBufferCtx.fillStyle = this.fillStyle;
+      _frameBufferCtx.strokeStyle = this.strokeStyle;
+      return true;
+    };
+
+    return Shape;
+
+  })();
+
+  Leo.Rect = Rect = (function(_super) {
+    __extends(Rect, _super);
+
+    function Rect() {
+      _ref = Rect.__super__.constructor.apply(this, arguments);
+      return _ref;
+    }
+
+    Rect.prototype.draw = function() {
+      if (!Rect.__super__.draw.apply(this, arguments)) {
+        return false;
+      }
+      _frameBufferCtx.fillRect(this.drawX, this.drawY, this.drawW, this.drawH);
+      return true;
+    };
+
+    return Rect;
+
+  })(Shape);
+
+  Leo.Line = Line = (function(_super) {
+    __extends(Line, _super);
+
+    function Line(data) {
+      var defaultData;
+
+      defaultData = {
+        x2: 0,
+        y2: 0
+      };
+      data = Leo.util.merge(defaultData, data);
+      Line.__super__.constructor.call(this, data);
+    }
+
+    Line.prototype.draw = function() {
+      if (!Line.__super__.draw.apply(this, arguments)) {
+        return false;
+      }
+      _frameBufferCtx.beginPath();
+      _frameBufferCtx.moveTo(this.drawX, this.drawY);
+      _frameBufferCtx.lineTo(Leo.view.posToPx(this.x2, 'x'), Leo.view.posToPx(this.y2, 'y'));
+      _frameBufferCtx.closePath();
+      _frameBufferCtx.stroke();
+      return true;
+    };
+
+    return Line;
+
+  })(Shape);
+
   Leo.Actor = Actor = (function() {
     function Actor(properties) {
       var key, val;
@@ -372,13 +524,14 @@
         this[key] = val;
       }
       this.spriteImg = Leo.sprite.getImg(this.spritesheet);
+      Leo.actors.push(this);
     }
 
     Actor.prototype.draw = function() {
       var frame;
 
       frame = this.animations[this.animName].frames[this.animFrame];
-      return _frameBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], ((this.posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, ((this.posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, frame[2], frame[3]);
+      return _frameBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], Leo.view.posToPx(this.posX, 'x') + frame[4], Leo.view.posToPx(this.posY, 'y') + frame[5], frame[2], frame[3]);
     };
 
     Actor.prototype.setAnimation = function(animName, animFrame) {
@@ -432,13 +585,12 @@
 
     function Player(data) {
       Player.__super__.constructor.call(this, data);
-      Leo.actors.push(this);
       this.state = new PlayerStateStanding(this);
       this.stateBefore = null;
     }
 
     Player.prototype.setState = function(state) {
-      if (this.state === state) {
+      if (this.state instanceof state) {
         return;
       }
       this.stateBefore = this.state;
@@ -450,12 +602,197 @@
     };
 
     Player.prototype.update = function(cycleLengthMs) {
+      var bgCorner, colAng, colH, colW, endX, endY, isHorizontalCollision, layer, movAng, neighborTile, newPosX, newPosY, newSpeedX, newSpeedY, p2Corner, startX, startY, tile, x, y, _i, _j;
+
       this.speedY += Leo.environment.gravity * cycleLengthMs * 0.001;
       Player.__super__.update.call(this, cycleLengthMs);
       this.state.update(cycleLengthMs);
-      if (this.posY > 12) {
-        return this.posY = 12;
+      colW = 1;
+      colH = 2;
+      startX = this.posX >> 0;
+      endX = (this.posX + colW) >> 0;
+      startY = this.posY >> 0;
+      endY = (this.posY + colH) >> 0;
+      layer = Leo.layers.get('ground');
+      newPosX = this.posX;
+      newPosY = this.posY;
+      newSpeedX = this.speedX;
+      newSpeedY = this.speedY;
+      for (y = _i = startY; startY <= endY ? _i <= endY : _i >= endY; y = startY <= endY ? ++_i : --_i) {
+        for (x = _j = startX; startX <= endX ? _j <= endX : _j >= endX; x = startX <= endX ? ++_j : --_j) {
+          tile = layer.getTile(x, y);
+          if (tile > -1) {
+            /*
+            +----+  Player moves from P1 to P2
+            | P1 |  and collides with background tile Bg.
+            |    |  Player moves with vector (speedX, speedY)
+            +----+
+                 +----+  The angle between AB and the movement vector determines
+                 | P2 |  if it is a horizontal or vertical collision.
+                 |  A------+
+                 +--|-B    |
+                    |  Bg  |
+                    +------+
+            */
+
+            if (this.speedX === 0) {
+              isHorizontalCollision = false;
+            } else if (this.speedY === 0) {
+              isHorizontalCollision = true;
+            } else {
+              p2Corner = {};
+              bgCorner = {};
+              if (this.speedX > 0) {
+                p2Corner.x = this.posX + colW;
+                bgCorner.x = x;
+              } else {
+                p2Corner.x = this.posX;
+                bgCorner.x = x + 1;
+              }
+              if (this.speedY > 0) {
+                p2Corner.y = this.posY + colH;
+                bgCorner.y = y;
+              } else {
+                p2Corner.y = this.posY;
+                bgCorner.y = y + 1;
+              }
+              movAng = Math.abs(this.speedY / this.speedX);
+              colAng = Math.abs((p2Corner.y - bgCorner.y) / (p2Corner.x - bgCorner.x));
+              if (movAng - colAng < 0.01) {
+                isHorizontalCollision = true;
+              } else {
+                isHorizontalCollision = false;
+              }
+            }
+            if (isHorizontalCollision) {
+              if (this.speedX > 0) {
+                neighborTile = layer.getTile(x, y, -1, 0);
+                if (neighborTile === -1) {
+                  newPosX = x - colW - 0.01;
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y,
+                    x2: x,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(0,128,0,0.9)'
+                  });
+                } else {
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y,
+                    x2: x,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(255,64,0,0.6)'
+                  });
+                }
+              } else {
+                neighborTile = layer.getTile(x, y, 1, 0);
+                if (neighborTile === -1) {
+                  newPosX = x + 1;
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x + 1,
+                    y: y,
+                    x2: x + 1,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(0,128,0,0.9)'
+                  });
+                } else {
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x + 1,
+                    y: y,
+                    x2: x + 1,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(255,64,0,0.6)'
+                  });
+                }
+              }
+              if (this.speedX === 0 && this.state === PlayerStateRunning) {
+                this.setState(PlayerStateStanding);
+              }
+            } else {
+              if (this.speedY < 0) {
+                neighborTile = layer.getTile(x, y, 0, 1);
+                if (neighborTile === -1) {
+                  newPosY = y + 1;
+                  newSpeedY = 0;
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y + 1,
+                    x2: x + 1,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(0,128,0,0.9)'
+                  });
+                } else {
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y + 1,
+                    x2: x + 1,
+                    y2: y + 1,
+                    strokeStyle: 'rgba(255,64,0,0.6)'
+                  });
+                }
+              } else if (this.speedY > 0) {
+                neighborTile = layer.getTile(x, y, 0, -1);
+                if (neighborTile === -1) {
+                  newPosY = y - colH;
+                  newSpeedY = 0;
+                  if (this.speedX === 0) {
+                    this.setState(PlayerStateStanding);
+                  } else {
+                    this.setState(PlayerStateRunning);
+                  }
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y,
+                    x2: x + 1,
+                    y2: y,
+                    strokeStyle: 'rgba(0,128,0,0.9)'
+                  });
+                } else {
+                  Leo.view.drawOnce({
+                    shape: 'Line',
+                    x: x,
+                    y: y,
+                    x2: x + 1,
+                    y2: y,
+                    strokeStyle: 'rgba(255,64,0,0.6)'
+                  });
+                }
+              }
+            }
+            if (neighborTile === -1) {
+              Leo.view.drawOnce({
+                shape: 'Rect',
+                x: x,
+                y: y,
+                w: 1,
+                h: 1,
+                fillStyle: 'rgba(0,255,0,0.6)'
+              });
+            } else {
+              Leo.view.drawOnce({
+                shape: 'Rect',
+                x: x,
+                y: y,
+                w: 1,
+                h: 1,
+                fillStyle: 'rgba(255,255,0,0.5)'
+              });
+            }
+          }
+        }
       }
+      this.posX = newPosX;
+      this.posY = newPosY;
+      this.speedX = newSpeedX;
+      return this.speedY = newSpeedY;
     };
 
     return Player;
@@ -614,14 +951,7 @@
     };
 
     PlayerStateAir.prototype.update = function(cycleLengthMs) {
-      PlayerStateAir.__super__.update.call(this, cycleLengthMs);
-      if (this.parent.posY >= 12) {
-        if (this.parent.speedX === 0) {
-          return this.parent.setState(PlayerStateStanding);
-        } else {
-          return this.parent.setState(PlayerStateRunning);
-        }
-      }
+      return PlayerStateAir.__super__.update.call(this, cycleLengthMs);
     };
 
     return PlayerStateAir;
@@ -689,7 +1019,7 @@
 
   Leo.Layer = Layer = (function() {
     function Layer(properties) {
-      var chunk, i, key, layer, val, _i, _len, _ref;
+      var chunk, i, key, layer, val, _i, _len, _ref1;
 
       this.spritesheet = '';
       this.chunks = [
@@ -711,80 +1041,91 @@
       this.spriteImg = Leo.sprite.getImg(this.spritesheet);
       layer = this;
       this.spriteImg.addEventListener('load', function() {
-        var chunk, _i, _len, _ref;
+        var chunk, _i, _len, _ref1;
 
         if (!layer.chunks) {
           return;
         }
-        _ref = layer.chunks;
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          chunk = _ref[_i];
+        _ref1 = layer.chunks;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          chunk = _ref1[_i];
           chunk.redraw();
         }
       });
       this.layerNumTilesX = 0;
-      _ref = this.chunks;
-      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
-        chunk = _ref[i];
+      _ref1 = this.chunks;
+      for (i = _i = 0, _len = _ref1.length; _i < _len; i = ++_i) {
+        chunk = _ref1[i];
         this.chunks[i] = new Chunk(this, chunk);
         this.layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX;
       }
     }
 
     Layer.prototype.draw = function() {
-      var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref, _ref1;
+      var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref1, _ref2;
 
       if (this.isLooping) {
         chunk = this.chunks[0];
-        posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * this.parallax) >> 0;
+        posX = Leo.view.posToPx(chunk.tileOffsetX + chunk.chunkOffsetX, 'x', this.parallax);
         multiplier = ((Leo.view.cameraPosX / this.layerNumTilesX * this.parallax) >> 0) - 1;
         posX += this.layerNumTilesX * Leo.background.tileSize * multiplier;
         while (posX < _camW) {
-          _ref = this.chunks;
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            chunk = _ref[_i];
-            posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
+          _ref1 = this.chunks;
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            chunk = _ref1[_i];
+            posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y');
             chunk.draw(posX, posY);
             posX += chunk.drawBuffer.width + chunk.tileOffsetXPx;
           }
         }
       } else {
-        _ref1 = this.chunks;
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          chunk = _ref1[_j];
-          posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * this.parallax) >> 0;
-          posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0;
+        _ref2 = this.chunks;
+        for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+          chunk = _ref2[_j];
+          posX = Leo.view.posToPx(chunk.tileOffsetX + chunk.chunkOffsetX, 'x', this.parallax);
+          posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y');
           chunk.draw(posX, posY);
         }
       }
     };
 
-    Layer.prototype.getTile = function(chunkX, tileX, tileY) {
-      var chunk, x, y;
+    Layer.prototype.getTile = function(tileX, tileY, offsetX, offsetY) {
+      var chunk, chunkNo, x, y;
 
-      chunk = this.chunks[chunkX];
-      x = tileX - chunk.tileOffsetX;
-      y = tileY - chunk.tileOffsetY;
-      return chunk.tiles[x + y * chunk.width];
+      if (offsetX == null) {
+        offsetX = 0;
+      }
+      if (offsetY == null) {
+        offsetY = 0;
+      }
+      chunkNo = ((tileX + offsetX) / this.chunks[0].width) >> 0;
+      chunk = this.chunks[chunkNo];
+      x = tileX - chunk.tileOffsetX + offsetX - chunk.width * chunkNo;
+      y = tileY - chunk.tileOffsetY + offsetY;
+      if ((0 > x && x > chunk.width) || (0 > y && y > chunk.width)) {
+        return -1;
+      }
+      return chunk.tiles[x + y * chunk.width] || -1;
     };
 
-    Layer.prototype.setTile = function(chunkX, tileX, tileY, tile) {
-      var chunk, x, y;
+    Layer.prototype.setTile = function(tileX, tileY, tile) {
+      var chunk, chunkNo, x, y;
 
-      chunk = this.chunks[chunkX];
+      chunkNo = (tileX / this.chunks[0].width) >> 0;
+      chunk = this.chunks[chunkNo];
       chunk.drawBufferDirty = true;
-      x = tileX - chunk.tileOffsetX;
+      x = tileX - chunk.tileOffsetX - chunk.width * chunkNo;
       y = tileY - chunk.tileOffsetY;
       return chunk.tiles[x + y * chunk.width] = tile;
     };
 
     Layer.prototype.serialize = function() {
-      var chunk, chunkData, data, _i, _len, _ref;
+      var chunk, chunkData, data, _i, _len, _ref1;
 
       data = '';
-      _ref = this.chunks;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        chunk = _ref[_i];
+      _ref1 = this.chunks;
+      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+        chunk = _ref1[_i];
         data += String.fromCharCode(Leo.core.DATA_TYPES.CHUNK);
         chunkData = chunk.serialize();
         data += String.fromCharCode(chunkData.length) + chunkData;
@@ -843,14 +1184,14 @@
     }
 
     Chunk.prototype.draw = function(posX, posY) {
-      var i, x, y, _i, _ref;
+      var i, x, y, _i, _ref1;
 
       if (posX < -this.drawBuffer.width || posX > _camW || posY < -this.drawBuffer.height || posY > _camH) {
         return;
       }
       if (this.drawBufferDirty) {
         this.drawBufferCtx.clearRect(0, 0, this.drawBuffer.width, this.drawBuffer.height);
-        for (i = _i = 0, _ref = this.tiles.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        for (i = _i = 0, _ref1 = this.tiles.length; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
           x = i % this.width;
           y = (i / this.width) >> 0;
           this.drawTile(this.drawBufferCtx, this.tiles[i], x * Leo.background.tileSize, (y + this.chunkOffsetY) * Leo.background.tileSize);
@@ -867,7 +1208,7 @@
     Chunk.prototype.drawTile = function(ctx, spriteN, posX, posY) {
       var spriteWidth, spriteX, spriteY, tileSize;
 
-      if (spriteX === -1 || spriteY === -1) {
+      if (spriteN === -1) {
         return;
       }
       tileSize = Leo.background.tileSize;
@@ -878,23 +1219,23 @@
     };
 
     Chunk.prototype.serialize = function() {
-      var data, tile, _i, _len, _ref;
+      var data, tile, _i, _len, _ref1;
 
       data = '';
-      _ref = this.tiles;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        tile = _ref[_i];
+      _ref1 = this.tiles;
+      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+        tile = _ref1[_i];
         data += String.fromCharCode(tile + 1);
       }
       return data;
     };
 
     Chunk.prototype.deserialize = function(data) {
-      var i, _i, _ref;
+      var i, _i, _ref1;
 
       this.drawBufferDirty = true;
       this.tiles.length = 0;
-      for (i = _i = 0, _ref = data.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+      for (i = _i = 0, _ref1 = data.length; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
         this.tiles.push(data.charCodeAt(i) - 1);
       }
       return this.drawBuffer.height = ((this.tiles.length / this.width) >> 0) * Leo.background.tileSize;
@@ -950,7 +1291,7 @@
       },
       animName: 'standingRight',
       posX: 6,
-      posY: 12
+      posY: 6
     });
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;

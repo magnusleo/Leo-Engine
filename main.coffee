@@ -18,7 +18,7 @@ _camX = 0
 _camY = 0
 _camW = 0
 _camH = 0
-_editTile = [-1, -1]
+_editTile = -1
 
 # Public variables
 Leo.environment =
@@ -33,11 +33,20 @@ Leo.view =
     cameraWidth: 30
     cameraHeight: 17
 
+Leo.view.posToPx = (posX, axis, parallax = 1.0) ->
+    return ((posX - Leo.view['cameraPos' + axis.toUpperCase()]) * Leo.background.tileSize * parallax) >> 0
+
+Leo.view.drawOnceQue = []
+Leo.view.drawOnce = (data) ->
+    Leo.view.drawOnceQue.push data
+
+
 Leo.background =
     tileSize: 16
     color: '#6ec0ff'
 
 Leo.actors = []
+Leo.shapes = []
 
 
 # Core functions
@@ -67,25 +76,19 @@ Leo.core.init = ->
         camX     = Leo.view.cameraPosX
         camY     = Leo.view.cameraPosY
         scale    = Leo.view.scale
-        chunkW   = Leo.view.cameraWidth
-        chunkH   = Leo.view.cameraHeight
         tileSize = Leo.background.tileSize
 
-        chunkX   = ((camX + mouseX / scale / tileSize) / chunkW) >> 0
-        tileX    = (mouseX / scale / tileSize - (chunkX * chunkW - camX)) >> 0
+        tileX    = (mouseX / scale / tileSize + camX) >> 0
+        tileY    = (mouseY / scale / tileSize + camY) >> 0
 
-        chunkY   = ((camY + mouseY / scale / tileSize) / chunkH) >> 0
-        tileY    = (mouseY / scale / tileSize - (chunkY * chunkH - camY)) >> 0
-
-        layer = Leo.layers.get('ground')
-        tile     = layer.getTile(chunkX, tileX, tileY)
+        layer    = Leo.layers.get('ground')
+        tile     = layer.getTile(tileX, tileY)
+        console.log tileX, tileY #Debug
 
         if e.altKey
             _editTile = tile
         else
-           layer.setTile(chunkX, tileX, tileY, _editTile)
-
-        #TODO: Use this information for something, like drawing!
+           layer.setTile(tileX, tileY, _editTile)
 
     _view.addEventListener 'mouseup', (e) ->
         e.preventDefault()
@@ -96,6 +99,9 @@ Leo.core.init = ->
     window.requestAnimationFrame(Leo.core.cycle)
 
 Leo.core.draw = ->
+    if Leo.util.documentHidden()
+        return
+
     # Calculate camera pixel values
     _camX = Leo.view.cameraPosX * Leo.background.tileSize
     _camY = Leo.view.cameraPosY * Leo.background.tileSize
@@ -114,6 +120,18 @@ Leo.core.draw = ->
     for actor in Leo.actors
         actor.draw()
 
+    # Render shapes
+    for shape in Leo.shapes
+        shape.draw()
+
+    while so = Leo.view.drawOnceQue.pop()
+        shape = Leo['drawOnce' + so.shape] ?= new Leo[so.shape]()
+        for name, val of so
+            shape[name] = val
+        shape.isVisible = true
+        shape.draw()
+        shape.isVisible = false
+
     _viewCtx.drawImage _frameBuffer,
         0,
         0,
@@ -123,11 +141,10 @@ Leo.core.draw = ->
 Leo.core.cycle = ->
     # Frame timing
     thisFrameTime = Date.now()
-    cycleLengthMs = thisFrameTime - _latestFrameTime # Unit milliseconds
-    cycleLengthS = cycleLengthMs * 0.001 # Unit seconds
+    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 500) # Unit milliseconds
 
     # Camera
-    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthS
+    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001
 
     # Actors
     for actor in Leo.actors
@@ -138,7 +155,7 @@ Leo.core.cycle = ->
     _latestFrameTime = thisFrameTime
     window.requestAnimationFrame(Leo.core.cycle)
 
-    Leo.cycleCallback()
+    Leo.cycleCallback(cycleLengthMs)
 
 Leo.core.DATA_TYPES =
     CHUNK: 0
@@ -151,7 +168,8 @@ Leo.cycleCallback = -> # Override Leo.cycleCallback with your own function
 Leo.event = {}
 
 Leo.event._keydown = (e) ->
-    e.preventDefault()
+    unless e.ctrlKey or e.metaKey
+        e.preventDefault()
 
     # Prevent keydown repeat
     keyIndex = _pressedKeys.indexOf e.keyCode
@@ -225,11 +243,100 @@ Leo.layers.get = (id) ->
 
 
 
-
 # Utilities
 Leo.util = {}
 
 Leo.util.KEY_CODES = {'BACKSPACE':8,'TAB':9,'ENTER':13,'SHIFT':16,'CTRL':17,'ALT':18,'PAUSE_BREAK':19,'CAPS_LOCK':20,'ESCAPE':27,'PAGE_UP':33,'PAGE_DOWN':34,'END':35,'HOME':36,'LEFT':37,'UP':38,'RIGHT':39,'DOWN':40,'INSERT':45,'DELETE':46,'0':48,'1':49,'2':50,'3':51,'4':52,'5':53,'6':54,'7':55,'8':56,'9':57,'A':65,'B':66,'C':67,'D':68,'E':69,'F':70,'G':71,'H':72,'I':73,'J':74,'K':75,'L':76,'M':77,'N':78,'O':79,'P':80,'Q':81,'R':82,'S':83,'T':84,'U':85,'V':86,'W':87,'X':88,'Y':89,'Z':90,'LEFT_WINDOW_KEY':91,'RIGHT_WINDOW_KEY':92,'SELECT_KEY':93,'NUMPAD_0':96,'NUMPAD_1':97,'NUMPAD_2':98,'NUMPAD_3':99,'NUMPAD_4':100,'NUMPAD_5':101,'NUMPAD_6':102,'NUMPAD_7':103,'NUMPAD_8':104,'NUMPAD_9':105,'MULTIPLY':106,'*':106,'ADD':107,'+':107,'SUBTRACT':109,'DECIMAL_POINT':110,'DIVIDE':111,'F1':112,'F2':113,'F3':114,'F4':115,'F5':116,'F6':117,'F7':118,'F8':119,'F9':120,'F10':121,'F11':122,'F12':123,'NUM_LOCK':144,'SCROLL_LOCK':145,'SEMI-COLON':186,';':186,'EQUAL_SIGN':187,'=':187,'COMMA':188,',':188,'DASH':189,'-':189,'PERIOD':190,'.':190,'FORWARD_SLASH':191,'/':191,'GRAVE_ACCENT':192,'OPEN_BRACKET':219,'[':219,'BACK_SLASH':220,'\\':220,'CLOSE_BRAKET':221,']':221,'SINGLE_QUOTE':222,'\'':222}
+
+Leo.util.documentHidden = ->
+    vendors = ['ms', 'moz', 'webkit', 'o']
+    i = 0
+    if document.hidden?
+        return document.hidden
+
+    for vendor in vendors
+        if typeof document[vendor + 'Hidden'] isnt 'undefined'
+            return document[vendor + 'Hidden']
+
+    return false
+
+Leo.util.merge = ->
+    ret = {}
+    for obj in arguments
+        if typeof obj isnt 'object' or
+        (obj instanceof Array)
+            continue
+        for name, val of obj
+            ret[name] = val
+    return ret
+
+
+
+Leo.Shape =
+class Shape
+
+    constructor: (data) -> # Shape::constructor
+        defaultData =
+            fillStyle: 'rgba(255,0,0,0.4)'
+            strokeStyle: 'rgba(255,0,0,0.7)'
+            h: 1
+            w: 1
+            x: 0
+            y: 0
+        data = Leo.util.merge(defaultData, data)
+        for name, val of data
+            this[name] = val
+
+        Leo.shapes.push this
+
+
+    draw: -> # Shape::draw
+        if not @isVisible
+            return false
+
+        @drawX = Leo.view.posToPx(@x, 'x')
+        @drawY = Leo.view.posToPx(@y, 'y')
+        @drawW = @w * Leo.background.tileSize
+        @drawH = @h * Leo.background.tileSize
+        _frameBufferCtx.fillStyle = @fillStyle
+        _frameBufferCtx.strokeStyle = @strokeStyle
+        # Shape specific drawing in subclass (e.g. Rect)
+        return true
+
+
+
+Leo.Rect =
+class Rect extends Shape
+
+    draw: -> # Rect::draw
+        unless super
+            return false
+        _frameBufferCtx.fillRect @drawX, @drawY, @drawW, @drawH
+        return true
+
+
+
+Leo.Line =
+class Line extends Shape
+
+    constructor: (data) -> # Shape::constructor
+        defaultData =
+            x2: 0
+            y2: 0
+        data = Leo.util.merge(defaultData, data)
+        super(data)
+
+
+    draw: -> # Line::draw
+        unless super
+            return false
+        _frameBufferCtx.beginPath()
+        _frameBufferCtx.moveTo @drawX, @drawY
+        _frameBufferCtx.lineTo( Leo.view.posToPx(@x2, 'x'), Leo.view.posToPx(@y2, 'y') )
+        _frameBufferCtx.closePath()
+        _frameBufferCtx.stroke()
+        return true
+
 
 
 Leo.Actor =
@@ -263,6 +370,8 @@ class Actor
             @[key] = val
         @spriteImg = Leo.sprite.getImg @spritesheet
 
+        Leo.actors.push this
+
 
     draw: -> # Actor::draw
         frame = @animations[@animName].frames[@animFrame]
@@ -271,8 +380,8 @@ class Actor
             frame[1], # Source y
             frame[2], # Source width
             frame[3], # Source height
-            ((@posX - Leo.view.cameraPosX) * Leo.background.tileSize + frame[4]) >> 0, # Position + frame offset X
-            ((@posY - Leo.view.cameraPosY) * Leo.background.tileSize + frame[5]) >> 0, # Position + frame offset Y
+            Leo.view.posToPx(@posX, 'x') + frame[4], # Position + frame offset X
+            Leo.view.posToPx(@posY, 'y') + frame[5], # Position + frame offset Y
             frame[2], # Destination width
             frame[3], # Destination height
 
@@ -310,14 +419,13 @@ class Player extends Actor
 
     constructor: (data) -> # Player::constructor
         super(data)
-        Leo.actors.push this
 
         @state = new PlayerStateStanding(this)
         @stateBefore = null
 
 
     setState: (state) -> # Player::setState
-        if @state is state
+        if @state instanceof state
             return
         @stateBefore = @state
         @state = new state(this)
@@ -333,8 +441,128 @@ class Player extends Actor
         super(cycleLengthMs)
         @state.update(cycleLengthMs)
 
-        if @posY > 12 #Debug
-            @posY = 12
+        # Collisions
+        colW   = 1 # Hitbox width
+        colH   = 2 # Hitbox height
+
+        startX = @posX >> 0
+        endX   = (@posX + colW) >> 0
+        startY = @posY >> 0
+        endY   = (@posY + colH) >> 0
+        layer  = Leo.layers.get('ground')
+
+        newPosX = @posX
+        newPosY = @posY
+        newSpeedX = @speedX
+        newSpeedY = @speedY
+
+        # Check if overlapping tiles are collidable
+        for y in [startY..endY]
+            for x in [startX..endX]
+                tile = layer.getTile(x, y)
+                if tile > -1
+                    ###
+                    +----+  Player moves from P1 to P2
+                    | P1 |  and collides with background tile Bg.
+                    |    |  Player moves with vector (speedX, speedY)
+                    +----+
+                         +----+  The angle between AB and the movement vector determines
+                         | P2 |  if it is a horizontal or vertical collision.
+                         |  A------+
+                         +--|-B    |
+                            |  Bg  |
+                            +------+
+                    ###
+                    if @speedX == 0
+                        isHorizontalCollision = false
+                    else if @speedY == 0
+                        isHorizontalCollision = true
+                    else
+                        # Get player's foremost corner in the movement vector
+                        # and the backgrounds opposing corner
+                        p2Corner = {}
+                        bgCorner = {}
+
+                        if @speedX > 0
+                            p2Corner.x = @posX + colW
+                            bgCorner.x = x
+                        else
+                            p2Corner.x = @posX
+                            bgCorner.x = x + 1
+
+                        if @speedY > 0
+                            p2Corner.y = @posY + colH
+                            bgCorner.y = y
+                        else
+                            p2Corner.y = @posY
+                            bgCorner.y = y + 1
+
+                        # Determine by the angle if it is a horizontal or vertical collision
+                        movAng = Math.abs(@speedY / @speedX)
+                        colAng = Math.abs((p2Corner.y - bgCorner.y) / (p2Corner.x - bgCorner.x))
+                        if movAng - colAng < 0.01
+                            isHorizontalCollision = true
+                        else
+                            isHorizontalCollision = false
+
+                    if isHorizontalCollision
+                        # Horizontal collisions
+                        if @speedX > 0
+                            # Going right. Is not an edge if the tile to the left is solid.
+                            neighborTile = layer.getTile(x, y, -1, 0)
+                            if neighborTile == -1
+                                newPosX = x - colW - 0.01
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            else
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                        else
+                            # Going left. Is not an edge if the tile to the right is solid.
+                            neighborTile = layer.getTile(x, y, 1, 0)
+                            if neighborTile == -1
+                                newPosX = x + 1
+                                Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            else
+                                Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                        if @speedX == 0 and  @state is PlayerStateRunning
+                            @setState PlayerStateStanding
+                    else
+                        # Vertical collisions
+                        if @speedY < 0
+                            # Going up. Is not an edge if the tile upwards is solid.
+                            neighborTile = layer.getTile(x, y, 0, 1)
+                            if neighborTile == -1
+                                newPosY = y + 1
+                                newSpeedY = 0
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            else
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                        else if @speedY > 0
+                            # Going down. Is not an edge if the tile downwards is solid.
+                            neighborTile = layer.getTile(x, y, 0, -1)
+                            if neighborTile == -1
+                                newPosY = y - colH
+                                newSpeedY = 0
+                                if @speedX == 0
+                                    @setState PlayerStateStanding
+                                else
+                                    @setState PlayerStateRunning
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            else
+                                Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+
+                    # Debug highlight block
+                    if neighborTile == -1
+                        # Collision
+                        Leo.view.drawOnce {shape:'Rect', x:x, y:y, w:1, h:1, fillStyle:'rgba(0,255,0,0.6)'} #Debug
+                    else
+                        # Internal edge; no collision
+                        Leo.view.drawOnce {shape:'Rect', x:x, y:y, w:1, h:1, fillStyle:'rgba(255,255,0,0.5)'} #Debug
+
+        # Apply new position and speed
+        @posX = newPosX
+        @posY = newPosY
+        @speedX = newSpeedX
+        @speedY = newSpeedY
 
 
 
@@ -467,11 +695,6 @@ class PlayerStateAir extends PlayerState
 
     update: (cycleLengthMs) -> # PlayerStateAir::update
         super(cycleLengthMs)
-        if @parent.posY >= 12 #Debug
-            if @parent.speedX == 0
-                @parent.setState PlayerStateStanding
-            else
-                @parent.setState PlayerStateRunning
 
 
 
@@ -564,33 +787,40 @@ class Layer
     draw: -> # Layer::draw
         if @isLooping
             chunk = @chunks[0]
-            posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
+            posX = Leo.view.posToPx(chunk.tileOffsetX + chunk.chunkOffsetX, 'x', @parallax)
             multiplier = ((Leo.view.cameraPosX / @layerNumTilesX * @parallax) >> 0) - 1
             posX += @layerNumTilesX * Leo.background.tileSize * multiplier
             while posX < _camW
                 for chunk in @chunks
-                    posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
+                    posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y')
                     chunk.draw(posX, posY)
                     posX += chunk.drawBuffer.width + chunk.tileOffsetXPx
         else
             for chunk in @chunks
-                posX = ((chunk.tileOffsetX - Leo.view.cameraPosX + chunk.chunkOffsetX) * Leo.background.tileSize * @parallax) >> 0
-                posY = ((chunk.tileOffsetY - Leo.view.cameraPosY + chunk.chunkOffsetY) * Leo.background.tileSize) >> 0
+                posX = Leo.view.posToPx(chunk.tileOffsetX + chunk.chunkOffsetX, 'x', @parallax)
+                posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y')
                 chunk.draw(posX, posY)
         return
 
 
-    getTile: (chunkX, tileX, tileY) -> # Layer::getTile
-        chunk = @chunks[chunkX]
-        x = tileX - chunk.tileOffsetX
-        y = tileY - chunk.tileOffsetY
-        return chunk.tiles[x + y * chunk.width]
+    getTile: (tileX, tileY, offsetX = 0, offsetY = 0) -> # Layer::getTile
+        chunkNo = ((tileX + offsetX) / @chunks[0].width) >> 0
+        chunk = @chunks[chunkNo]
+        x = tileX - chunk.tileOffsetX + offsetX - chunk.width * chunkNo
+        y = tileY - chunk.tileOffsetY + offsetY
+
+        if 0 > x > chunk.width or
+        0 > y > chunk.width
+            return -1
+
+        return chunk.tiles[x + y * chunk.width] or -1
 
 
-    setTile: (chunkX, tileX, tileY, tile) -> # Layer::setTile
-        chunk = @chunks[chunkX]
+    setTile: (tileX, tileY, tile) -> # Layer::setTile
+        chunkNo = (tileX / @chunks[0].width) >> 0
+        chunk = @chunks[chunkNo]
         chunk.drawBufferDirty = true
-        x = tileX - chunk.tileOffsetX
+        x = tileX - chunk.tileOffsetX - chunk.width * chunkNo
         y = tileY - chunk.tileOffsetY
         chunk.tiles[x + y * chunk.width] = tile
 
@@ -681,7 +911,7 @@ class Chunk
 
 
     drawTile: (ctx, spriteN, posX, posY) -> # Chunk::drawTile
-        if spriteX == -1 or spriteY == -1 then return
+        if spriteN == -1 then return
         tileSize = Leo.background.tileSize
         spriteWidth = 16
         spriteX = spriteN % spriteWidth #TODO: Make Sprite class with properties
@@ -712,7 +942,6 @@ class Chunk
         for i in [0..data.length]
             @tiles.push data.charCodeAt(i) - 1  # -1 to reverse +1 from Chunk::serialize
         @drawBuffer.height = ((@tiles.length / @width) >> 0) * Leo.background.tileSize
-
 
 
 
@@ -767,7 +996,7 @@ window.onload = ->
                 doLoop: false
         animName: 'standingRight'
         posX: 6
-        posY: 12
+        posY: 6
 
     Leo.cycleCallback = ->
         Leo.view.cameraPosX = Leo.player.posX - 15
