@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Chunk, Layer, Leo, Line, Player, PlayerState, PlayerStateAir, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, Rect, Shape, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _ref, _view, _viewCtx,
+  var Actor, Chunk, Layer, Leo, Line, Player, PlayerState, PlayerStateAir, PlayerStateFalling, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, Rect, Shape, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _ref, _ref1, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -602,7 +602,7 @@
     };
 
     Player.prototype.update = function(cycleLengthMs) {
-      var bgCorner, colAng, colH, colW, endX, endY, isHorizontalCollision, layer, movAng, neighborTile, newPosX, newPosY, newSpeedX, newSpeedY, p2Corner, startX, startY, tile, x, y, _i, _j;
+      var bgCorner, colAng, colH, colW, collisions, endX, endY, isHorizontalCollision, layer, movAng, neighborTile, newPosX, newPosY, newSpeedX, newSpeedY, p2Corner, startX, startY, tile, x, y, _i, _j;
 
       this.speedY += Leo.environment.gravity * cycleLengthMs * 0.001;
       Player.__super__.update.call(this, cycleLengthMs);
@@ -614,6 +614,12 @@
       startY = this.posY >> 0;
       endY = (this.posY + colH) >> 0;
       layer = Leo.layers.get('ground');
+      collisions = {
+        bottom: false,
+        top: false,
+        left: false,
+        right: false
+      };
       newPosX = this.posX;
       newPosY = this.posY;
       newSpeedX = this.speedX;
@@ -669,6 +675,7 @@
                 neighborTile = layer.getTile(x, y, -1, 0);
                 if (neighborTile === -1) {
                   newPosX = x - colW - 0.01;
+                  collisions.right = true;
                   Leo.view.drawOnce({
                     shape: 'Line',
                     x: x,
@@ -691,6 +698,7 @@
                 neighborTile = layer.getTile(x, y, 1, 0);
                 if (neighborTile === -1) {
                   newPosX = x + 1;
+                  collisions.left = true;
                   Leo.view.drawOnce({
                     shape: 'Line',
                     x: x + 1,
@@ -710,15 +718,13 @@
                   });
                 }
               }
-              if (this.speedX === 0 && this.state === PlayerStateRunning) {
-                this.setState(PlayerStateStanding);
-              }
             } else {
               if (this.speedY < 0) {
                 neighborTile = layer.getTile(x, y, 0, 1);
                 if (neighborTile === -1) {
                   newPosY = y + 1;
                   newSpeedY = 0;
+                  collisions.top = true;
                   Leo.view.drawOnce({
                     shape: 'Line',
                     x: x,
@@ -742,11 +748,7 @@
                 if (neighborTile === -1) {
                   newPosY = y - colH;
                   newSpeedY = 0;
-                  if (this.speedX === 0) {
-                    this.setState(PlayerStateStanding);
-                  } else {
-                    this.setState(PlayerStateRunning);
-                  }
+                  collisions.bottom = true;
                   Leo.view.drawOnce({
                     shape: 'Line',
                     x: x,
@@ -792,7 +794,16 @@
       this.posX = newPosX;
       this.posY = newPosY;
       this.speedX = newSpeedX;
-      return this.speedY = newSpeedY;
+      this.speedY = newSpeedY;
+      if (collisions.bottom) {
+        if (this.speedX === 0) {
+          return this.setState(PlayerStateStanding);
+        } else {
+          return this.setState(PlayerStateRunning);
+        }
+      } else {
+        return this.setState(PlayerStateFalling);
+      }
     };
 
     return Player;
@@ -943,27 +954,7 @@
     __extends(PlayerStateAir, _super);
 
     function PlayerStateAir(data) {
-      PlayerStateAir.__super__.constructor.call(this, data);
-    }
-
-    PlayerStateAir.prototype.handleInput = function(e) {
-      return PlayerStateAir.__super__.handleInput.call(this, e);
-    };
-
-    PlayerStateAir.prototype.update = function(cycleLengthMs) {
-      return PlayerStateAir.__super__.update.call(this, cycleLengthMs);
-    };
-
-    return PlayerStateAir;
-
-  })(PlayerState);
-
-  Leo.PlayerStateJumping = PlayerStateJumping = (function(_super) {
-    __extends(PlayerStateJumping, _super);
-
-    function PlayerStateJumping(data) {
-      PlayerStateJumping.__super__.constructor.call(this, data);
-      this.parent.speedY = -0.35;
+      PlayerStateAir.__super__.constructor.apply(this, arguments);
       if (this.parent.direction > 0) {
         this.parent.setAnimation('jumpingRight');
       } else {
@@ -971,18 +962,15 @@
       }
     }
 
-    PlayerStateJumping.prototype.handleInput = function(e) {
+    PlayerStateAir.prototype.handleInput = function(e) {
       var key, keyIndexLeft, keyIndexRight;
 
-      PlayerStateJumping.__super__.handleInput.call(this, e);
+      PlayerStateAir.__super__.handleInput.apply(this, arguments);
       key = Leo.util.KEY_CODES;
       if (e.type === 'keydown') {
         switch (e.keyCode) {
           case key.LEFT:
-            this.parent.direction = -1;
-            return this._setSpeedAndAnim();
           case key.RIGHT:
-            this.parent.direction = 1;
             return this._setSpeedAndAnim();
         }
       } else if (e.type === 'keyup') {
@@ -1004,7 +992,7 @@
       }
     };
 
-    PlayerStateJumping.prototype._setSpeedAndAnim = function() {
+    PlayerStateAir.prototype._setSpeedAndAnim = function() {
       this.parent.speedX = 0.15 * this.parent.direction;
       if (this.parent.direction > 0) {
         return this.parent.setAnimation('jumpingRight');
@@ -1013,13 +1001,47 @@
       }
     };
 
+    PlayerStateAir.prototype.update = function(cycleLengthMs) {
+      return PlayerStateAir.__super__.update.apply(this, arguments);
+    };
+
+    return PlayerStateAir;
+
+  })(PlayerState);
+
+  Leo.PlayerStateJumping = PlayerStateJumping = (function(_super) {
+    __extends(PlayerStateJumping, _super);
+
+    function PlayerStateJumping(data) {
+      PlayerStateJumping.__super__.constructor.apply(this, arguments);
+      this.parent.speedY = -0.35;
+    }
+
+    PlayerStateJumping.prototype.update = function(cycleLengthMs) {
+      if (this.parent.speedY <= 0) {
+        return this.parent.setState(PlayerStateFalling);
+      }
+    };
+
     return PlayerStateJumping;
+
+  })(PlayerStateAir);
+
+  Leo.PlayerStateFalling = PlayerStateFalling = (function(_super) {
+    __extends(PlayerStateFalling, _super);
+
+    function PlayerStateFalling() {
+      _ref1 = PlayerStateFalling.__super__.constructor.apply(this, arguments);
+      return _ref1;
+    }
+
+    return PlayerStateFalling;
 
   })(PlayerStateAir);
 
   Leo.Layer = Layer = (function() {
     function Layer(properties) {
-      var chunk, i, key, layer, val, _i, _len, _ref1;
+      var chunk, i, key, layer, val, _i, _len, _ref2;
 
       this.spritesheet = '';
       this.chunks = [
@@ -1041,28 +1063,28 @@
       this.spriteImg = Leo.sprite.getImg(this.spritesheet);
       layer = this;
       this.spriteImg.addEventListener('load', function() {
-        var chunk, _i, _len, _ref1;
+        var chunk, _i, _len, _ref2;
 
         if (!layer.chunks) {
           return;
         }
-        _ref1 = layer.chunks;
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          chunk = _ref1[_i];
+        _ref2 = layer.chunks;
+        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+          chunk = _ref2[_i];
           chunk.redraw();
         }
       });
       this.layerNumTilesX = 0;
-      _ref1 = this.chunks;
-      for (i = _i = 0, _len = _ref1.length; _i < _len; i = ++_i) {
-        chunk = _ref1[i];
+      _ref2 = this.chunks;
+      for (i = _i = 0, _len = _ref2.length; _i < _len; i = ++_i) {
+        chunk = _ref2[i];
         this.chunks[i] = new Chunk(this, chunk);
         this.layerNumTilesX += chunk.tiles.length + chunk.tileOffsetX;
       }
     }
 
     Layer.prototype.draw = function() {
-      var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref1, _ref2;
+      var chunk, multiplier, posX, posY, _i, _j, _len, _len1, _ref2, _ref3;
 
       if (this.isLooping) {
         chunk = this.chunks[0];
@@ -1070,18 +1092,18 @@
         multiplier = ((Leo.view.cameraPosX / this.layerNumTilesX * this.parallax) >> 0) - 1;
         posX += this.layerNumTilesX * Leo.background.tileSize * multiplier;
         while (posX < _camW) {
-          _ref1 = this.chunks;
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            chunk = _ref1[_i];
+          _ref2 = this.chunks;
+          for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+            chunk = _ref2[_i];
             posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y');
             chunk.draw(posX, posY);
             posX += chunk.drawBuffer.width + chunk.tileOffsetXPx;
           }
         }
       } else {
-        _ref2 = this.chunks;
-        for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
-          chunk = _ref2[_j];
+        _ref3 = this.chunks;
+        for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
+          chunk = _ref3[_j];
           posX = Leo.view.posToPx(chunk.tileOffsetX + chunk.chunkOffsetX, 'x', this.parallax);
           posY = Leo.view.posToPx(chunk.tileOffsetY + chunk.chunkOffsetY, 'y');
           chunk.draw(posX, posY);
@@ -1120,12 +1142,12 @@
     };
 
     Layer.prototype.serialize = function() {
-      var chunk, chunkData, data, _i, _len, _ref1;
+      var chunk, chunkData, data, _i, _len, _ref2;
 
       data = '';
-      _ref1 = this.chunks;
-      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-        chunk = _ref1[_i];
+      _ref2 = this.chunks;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        chunk = _ref2[_i];
         data += String.fromCharCode(Leo.core.DATA_TYPES.CHUNK);
         chunkData = chunk.serialize();
         data += String.fromCharCode(chunkData.length) + chunkData;
@@ -1184,14 +1206,14 @@
     }
 
     Chunk.prototype.draw = function(posX, posY) {
-      var i, x, y, _i, _ref1;
+      var i, x, y, _i, _ref2;
 
       if (posX < -this.drawBuffer.width || posX > _camW || posY < -this.drawBuffer.height || posY > _camH) {
         return;
       }
       if (this.drawBufferDirty) {
         this.drawBufferCtx.clearRect(0, 0, this.drawBuffer.width, this.drawBuffer.height);
-        for (i = _i = 0, _ref1 = this.tiles.length; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+        for (i = _i = 0, _ref2 = this.tiles.length; 0 <= _ref2 ? _i <= _ref2 : _i >= _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
           x = i % this.width;
           y = (i / this.width) >> 0;
           this.drawTile(this.drawBufferCtx, this.tiles[i], x * Leo.background.tileSize, (y + this.chunkOffsetY) * Leo.background.tileSize);
@@ -1219,23 +1241,23 @@
     };
 
     Chunk.prototype.serialize = function() {
-      var data, tile, _i, _len, _ref1;
+      var data, tile, _i, _len, _ref2;
 
       data = '';
-      _ref1 = this.tiles;
-      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-        tile = _ref1[_i];
+      _ref2 = this.tiles;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        tile = _ref2[_i];
         data += String.fromCharCode(tile + 1);
       }
       return data;
     };
 
     Chunk.prototype.deserialize = function(data) {
-      var i, _i, _ref1;
+      var i, _i, _ref2;
 
       this.drawBufferDirty = true;
       this.tiles.length = 0;
-      for (i = _i = 0, _ref1 = data.length; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+      for (i = _i = 0, _ref2 = data.length; 0 <= _ref2 ? _i <= _ref2 : _i >= _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
         this.tiles.push(data.charCodeAt(i) - 1);
       }
       return this.drawBuffer.height = ((this.tiles.length / this.width) >> 0) * Leo.background.tileSize;

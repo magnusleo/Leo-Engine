@@ -442,6 +442,7 @@ class Player extends Actor
         @state.update(cycleLengthMs)
 
         # Collisions
+        #TODO: Move to a general function or class
         colW   = 1 # Hitbox width
         colH   = 2 # Hitbox height
 
@@ -451,6 +452,11 @@ class Player extends Actor
         endY   = (@posY + colH) >> 0
         layer  = Leo.layers.get('ground')
 
+        collisions =
+            bottom: false
+            top: false
+            left: false
+            right: false
         newPosX = @posX
         newPosY = @posY
         newSpeedX = @speedX
@@ -512,6 +518,7 @@ class Player extends Actor
                             neighborTile = layer.getTile(x, y, -1, 0)
                             if neighborTile == -1
                                 newPosX = x - colW - 0.01
+                                collisions.right = true
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                             else
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
@@ -520,11 +527,10 @@ class Player extends Actor
                             neighborTile = layer.getTile(x, y, 1, 0)
                             if neighborTile == -1
                                 newPosX = x + 1
+                                collisions.left = true
                                 Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                             else
                                 Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
-                        if @speedX == 0 and  @state is PlayerStateRunning
-                            @setState PlayerStateStanding
                     else
                         # Vertical collisions
                         if @speedY < 0
@@ -533,6 +539,7 @@ class Player extends Actor
                             if neighborTile == -1
                                 newPosY = y + 1
                                 newSpeedY = 0
+                                collisions.top = true
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                             else
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
@@ -542,10 +549,7 @@ class Player extends Actor
                             if neighborTile == -1
                                 newPosY = y - colH
                                 newSpeedY = 0
-                                if @speedX == 0
-                                    @setState PlayerStateStanding
-                                else
-                                    @setState PlayerStateRunning
+                                collisions.bottom = true
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                             else
                                 Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
@@ -563,6 +567,15 @@ class Player extends Actor
         @posY = newPosY
         @speedX = newSpeedX
         @speedY = newSpeedY
+
+        # Update player state
+        if collisions.bottom
+            if @speedX == 0
+                @setState PlayerStateStanding
+            else
+                @setState PlayerStateRunning
+        else
+            @setState PlayerStateFalling
 
 
 
@@ -686,49 +699,27 @@ Leo.PlayerStateAir =
 class PlayerStateAir extends PlayerState
 
     constructor: (data) -> # PlayerStateAir::constructor
-        super(data)
+        super
+
+        if @parent.direction > 0
+                @parent.setAnimation 'jumpingRight'
+            else
+                @parent.setAnimation 'jumpingLeft'
 
 
     handleInput: (e) -> # PlayerStateAir::handleInput
-        super(e)
-
-
-    update: (cycleLengthMs) -> # PlayerStateAir::update
-        super(cycleLengthMs)
-
-
-
-Leo.PlayerStateJumping =
-class PlayerStateJumping extends PlayerStateAir
-
-    constructor: (data) -> # PlayerStateJumping::constructor
-        super(data)
-
-        @parent.speedY = -0.35
-
-        if @parent.direction > 0
-            @parent.setAnimation 'jumpingRight'
-        else
-            @parent.setAnimation 'jumpingLeft'
-
-
-    handleInput: (e) -> # PlayerStateJumping::handleInput
-        super(e)
+        super
         key = Leo.util.KEY_CODES
 
         if e.type is 'keydown'
             switch e.keyCode
-                when key.LEFT
-                    @parent.direction = -1
-                    @_setSpeedAndAnim()
-
-                when key.RIGHT
-                    @parent.direction = 1
+                when key.LEFT, key.RIGHT
                     @_setSpeedAndAnim()
 
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
+                    # Go in the direction of the pressed key
                     keyIndexLeft = _pressedKeys.indexOf key.LEFT
                     keyIndexRight = _pressedKeys.indexOf key.RIGHT
                     if keyIndexLeft is -1 and keyIndexRight is -1
@@ -741,12 +732,35 @@ class PlayerStateJumping extends PlayerStateAir
                         @_setSpeedAndAnim()
 
 
-    _setSpeedAndAnim: -> # PlayerStateJumping::_setSpeedAndAnim
+    _setSpeedAndAnim: -> # PlayerStateAir::_setSpeedAndAnim
         @parent.speedX = 0.15 * @parent.direction
         if @parent.direction > 0
             @parent.setAnimation 'jumpingRight'
         else
             @parent.setAnimation 'jumpingLeft'
+
+
+    update: (cycleLengthMs) -> # PlayerStateAir::update
+        super
+
+
+
+Leo.PlayerStateJumping =
+class PlayerStateJumping extends PlayerStateAir
+
+    constructor: (data) -> # PlayerStateJumping::constructor
+        super
+        @parent.speedY = -0.35
+
+    update: (cycleLengthMs) -> # PlayerStateJumping::update
+        if @parent.speedY <= 0
+            @parent.setState PlayerStateFalling
+
+
+
+Leo.PlayerStateFalling =
+class PlayerStateFalling extends PlayerStateAir
+
 
 
 
