@@ -818,7 +818,9 @@ class Layer
 
 
     getTile: (tileX, tileY, offsetX = 0, offsetY = 0) -> # Layer::getTile
-        chunkNo = ((tileX + offsetX) / @chunks[0].width) >> 0
+        chunkNo = Math.floor((tileX + offsetX) / @chunks[0].width)
+        if chunkNo < 0 or chunkNo > @chunks.length - 1
+            return -1
         chunk = @chunks[chunkNo]
         x = tileX - chunk.tileOffsetX + offsetX - chunk.width * chunkNo
         y = tileY - chunk.tileOffsetY + offsetY

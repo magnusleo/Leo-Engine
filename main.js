@@ -1120,7 +1120,10 @@
       if (offsetY == null) {
         offsetY = 0;
       }
-      chunkNo = ((tileX + offsetX) / this.chunks[0].width) >> 0;
+      chunkNo = Math.floor((tileX + offsetX) / this.chunks[0].width);
+      if (chunkNo < 0 || chunkNo > this.chunks.length - 1) {
+        return -1;
+      }
       chunk = this.chunks[chunkNo];
       x = tileX - chunk.tileOffsetX + offsetX - chunk.width * chunkNo;
       y = tileY - chunk.tileOffsetY + offsetY;
