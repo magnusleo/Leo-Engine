@@ -264,6 +264,210 @@
     return null;
   };
 
+  Leo.collision = {};
+
+  Leo.collision.actorToLayer = function(actor, layer, options) {
+    var a2Corner, bgCorner, colAng, collisions, endX, endY, isHorizontalCollision, movAng, neighborTile, newPosX, newPosY, newSpeedX, newSpeedY, o, startX, startY, tile, x, y, _i, _j;
+
+    o = {
+      reposition: false
+    };
+    o = Leo.util.merge(o, options);
+    collisions = {
+      any: false,
+      bottom: false,
+      top: false,
+      left: false,
+      right: false
+    };
+    newPosX = actor.posX;
+    newPosY = actor.posY;
+    newSpeedX = actor.speedX;
+    newSpeedY = actor.speedY;
+    startX = actor.posX >> 0;
+    endX = (actor.posX + actor.colW) >> 0;
+    startY = actor.posY >> 0;
+    endY = (actor.posY + actor.colH) >> 0;
+    for (y = _i = startY; startY <= endY ? _i <= endY : _i >= endY; y = startY <= endY ? ++_i : --_i) {
+      for (x = _j = startX; startX <= endX ? _j <= endX : _j >= endX; x = startX <= endX ? ++_j : --_j) {
+        tile = layer.getTile(x, y);
+        if (tile > -1) {
+          /*
+          +----+  Actor moves from A1 to A2
+          | A1 |  and collides with background tile Bg.
+          |    |  Actor moves with vector (speedX, speedY)
+          +----+
+               +----+  The angle between AcBc and the movement vector determines
+               | A2 |  if it is a horizontal or vertical collision.
+               |  Bc-----+
+               +--|-Ac   |
+                  |  Bg  |
+                  +------+
+          */
+
+          if (actor.speedX === 0) {
+            isHorizontalCollision = false;
+          } else if (actor.speedY === 0) {
+            isHorizontalCollision = true;
+          } else {
+            a2Corner = {};
+            bgCorner = {};
+            if (actor.speedX > 0) {
+              a2Corner.x = actor.posX + actor.colW;
+              bgCorner.x = x;
+            } else {
+              a2Corner.x = actor.posX;
+              bgCorner.x = x + 1;
+            }
+            if (actor.speedY > 0) {
+              a2Corner.y = actor.posY + actor.colH;
+              bgCorner.y = y;
+            } else {
+              a2Corner.y = actor.posY;
+              bgCorner.y = y + 1;
+            }
+            movAng = Math.abs(actor.speedY / actor.speedX);
+            colAng = Math.abs((a2Corner.y - bgCorner.y) / (a2Corner.x - bgCorner.x));
+            if (movAng - colAng < 0.01) {
+              isHorizontalCollision = true;
+            } else {
+              isHorizontalCollision = false;
+            }
+          }
+          if (isHorizontalCollision) {
+            if (actor.speedX > 0) {
+              neighborTile = layer.getTile(x, y, -1, 0);
+              if (neighborTile === -1) {
+                newPosX = x - actor.colW - 0.01;
+                collisions.any = true;
+                collisions.right = true;
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y,
+                  x2: x,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(0,128,0,0.9)'
+                });
+              } else {
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y,
+                  x2: x,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(255,64,0,0.6)'
+                });
+              }
+            } else {
+              neighborTile = layer.getTile(x, y, 1, 0);
+              if (neighborTile === -1) {
+                newPosX = x + 1;
+                collisions.any = true;
+                collisions.left = true;
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x + 1,
+                  y: y,
+                  x2: x + 1,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(0,128,0,0.9)'
+                });
+              } else {
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x + 1,
+                  y: y,
+                  x2: x + 1,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(255,64,0,0.6)'
+                });
+              }
+            }
+          } else {
+            if (actor.speedY < 0) {
+              neighborTile = layer.getTile(x, y, 0, 1);
+              if (neighborTile === -1) {
+                newPosY = y + 1;
+                newSpeedY = 0;
+                collisions.any = true;
+                collisions.top = true;
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y + 1,
+                  x2: x + 1,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(0,128,0,0.9)'
+                });
+              } else {
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y + 1,
+                  x2: x + 1,
+                  y2: y + 1,
+                  strokeStyle: 'rgba(255,64,0,0.6)'
+                });
+              }
+            } else if (actor.speedY > 0) {
+              neighborTile = layer.getTile(x, y, 0, -1);
+              if (neighborTile === -1) {
+                newPosY = y - actor.colH;
+                newSpeedY = 0;
+                collisions.any = true;
+                collisions.bottom = true;
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y,
+                  x2: x + 1,
+                  y2: y,
+                  strokeStyle: 'rgba(0,128,0,0.9)'
+                });
+              } else {
+                Leo.view.drawOnce({
+                  shape: 'Line',
+                  x: x,
+                  y: y,
+                  x2: x + 1,
+                  y2: y,
+                  strokeStyle: 'rgba(255,64,0,0.6)'
+                });
+              }
+            }
+          }
+          if (neighborTile === -1) {
+            Leo.view.drawOnce({
+              shape: 'Rect',
+              x: x,
+              y: y,
+              w: 1,
+              h: 1,
+              fillStyle: 'rgba(0,255,0,0.6)'
+            });
+          } else {
+            Leo.view.drawOnce({
+              shape: 'Rect',
+              x: x,
+              y: y,
+              w: 1,
+              h: 1,
+              fillStyle: 'rgba(255,255,0,0.5)'
+            });
+          }
+        }
+      }
+    }
+    if (o.reposition) {
+      actor.posX = newPosX;
+      actor.posY = newPosY;
+      actor.speedX = newSpeedX;
+      actor.speedY = newSpeedY;
+    }
+    return collisions;
+  };
+
   Leo.util = {};
 
   Leo.util.KEY_CODES = {
@@ -602,199 +806,14 @@
     };
 
     Player.prototype.update = function(cycleLengthMs) {
-      var bgCorner, colAng, colH, colW, collisions, endX, endY, isHorizontalCollision, layer, movAng, neighborTile, newPosX, newPosY, newSpeedX, newSpeedY, p2Corner, startX, startY, tile, x, y, _i, _j;
+      var collisions;
 
       this.speedY += Leo.environment.gravity * cycleLengthMs * 0.001;
       Player.__super__.update.call(this, cycleLengthMs);
       this.state.update(cycleLengthMs);
-      colW = 1;
-      colH = 2;
-      startX = this.posX >> 0;
-      endX = (this.posX + colW) >> 0;
-      startY = this.posY >> 0;
-      endY = (this.posY + colH) >> 0;
-      layer = Leo.layers.get('ground');
-      collisions = {
-        bottom: false,
-        top: false,
-        left: false,
-        right: false
-      };
-      newPosX = this.posX;
-      newPosY = this.posY;
-      newSpeedX = this.speedX;
-      newSpeedY = this.speedY;
-      for (y = _i = startY; startY <= endY ? _i <= endY : _i >= endY; y = startY <= endY ? ++_i : --_i) {
-        for (x = _j = startX; startX <= endX ? _j <= endX : _j >= endX; x = startX <= endX ? ++_j : --_j) {
-          tile = layer.getTile(x, y);
-          if (tile > -1) {
-            /*
-            +----+  Player moves from P1 to P2
-            | P1 |  and collides with background tile Bg.
-            |    |  Player moves with vector (speedX, speedY)
-            +----+
-                 +----+  The angle between AB and the movement vector determines
-                 | P2 |  if it is a horizontal or vertical collision.
-                 |  A------+
-                 +--|-B    |
-                    |  Bg  |
-                    +------+
-            */
-
-            if (this.speedX === 0) {
-              isHorizontalCollision = false;
-            } else if (this.speedY === 0) {
-              isHorizontalCollision = true;
-            } else {
-              p2Corner = {};
-              bgCorner = {};
-              if (this.speedX > 0) {
-                p2Corner.x = this.posX + colW;
-                bgCorner.x = x;
-              } else {
-                p2Corner.x = this.posX;
-                bgCorner.x = x + 1;
-              }
-              if (this.speedY > 0) {
-                p2Corner.y = this.posY + colH;
-                bgCorner.y = y;
-              } else {
-                p2Corner.y = this.posY;
-                bgCorner.y = y + 1;
-              }
-              movAng = Math.abs(this.speedY / this.speedX);
-              colAng = Math.abs((p2Corner.y - bgCorner.y) / (p2Corner.x - bgCorner.x));
-              if (movAng - colAng < 0.01) {
-                isHorizontalCollision = true;
-              } else {
-                isHorizontalCollision = false;
-              }
-            }
-            if (isHorizontalCollision) {
-              if (this.speedX > 0) {
-                neighborTile = layer.getTile(x, y, -1, 0);
-                if (neighborTile === -1) {
-                  newPosX = x - colW - 0.01;
-                  collisions.right = true;
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y,
-                    x2: x,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(0,128,0,0.9)'
-                  });
-                } else {
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y,
-                    x2: x,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(255,64,0,0.6)'
-                  });
-                }
-              } else {
-                neighborTile = layer.getTile(x, y, 1, 0);
-                if (neighborTile === -1) {
-                  newPosX = x + 1;
-                  collisions.left = true;
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x + 1,
-                    y: y,
-                    x2: x + 1,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(0,128,0,0.9)'
-                  });
-                } else {
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x + 1,
-                    y: y,
-                    x2: x + 1,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(255,64,0,0.6)'
-                  });
-                }
-              }
-            } else {
-              if (this.speedY < 0) {
-                neighborTile = layer.getTile(x, y, 0, 1);
-                if (neighborTile === -1) {
-                  newPosY = y + 1;
-                  newSpeedY = 0;
-                  collisions.top = true;
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y + 1,
-                    x2: x + 1,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(0,128,0,0.9)'
-                  });
-                } else {
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y + 1,
-                    x2: x + 1,
-                    y2: y + 1,
-                    strokeStyle: 'rgba(255,64,0,0.6)'
-                  });
-                }
-              } else if (this.speedY > 0) {
-                neighborTile = layer.getTile(x, y, 0, -1);
-                if (neighborTile === -1) {
-                  newPosY = y - colH;
-                  newSpeedY = 0;
-                  collisions.bottom = true;
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y,
-                    x2: x + 1,
-                    y2: y,
-                    strokeStyle: 'rgba(0,128,0,0.9)'
-                  });
-                } else {
-                  Leo.view.drawOnce({
-                    shape: 'Line',
-                    x: x,
-                    y: y,
-                    x2: x + 1,
-                    y2: y,
-                    strokeStyle: 'rgba(255,64,0,0.6)'
-                  });
-                }
-              }
-            }
-            if (neighborTile === -1) {
-              Leo.view.drawOnce({
-                shape: 'Rect',
-                x: x,
-                y: y,
-                w: 1,
-                h: 1,
-                fillStyle: 'rgba(0,255,0,0.6)'
-              });
-            } else {
-              Leo.view.drawOnce({
-                shape: 'Rect',
-                x: x,
-                y: y,
-                w: 1,
-                h: 1,
-                fillStyle: 'rgba(255,255,0,0.5)'
-              });
-            }
-          }
-        }
-      }
-      this.posX = newPosX;
-      this.posY = newPosY;
-      this.speedX = newSpeedX;
-      this.speedY = newSpeedY;
+      collisions = Leo.collision.actorToLayer(this, Leo.layers.get('ground'), {
+        reposition: true
+      });
       if (collisions.bottom) {
         if (this.speedX === 0) {
           return this.setState(PlayerStateStanding);
@@ -1316,7 +1335,9 @@
       },
       animName: 'standingRight',
       posX: 6,
-      posY: 6
+      posY: 6,
+      colW: 1,
+      colH: 2
     });
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
