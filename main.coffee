@@ -22,7 +22,7 @@ _editTile = -1
 
 # Public variables
 Leo.environment =
-    gravity: 1.0 # Tiles per second^2
+    gravity: 60 # Tiles per second^2
 
 Leo.view =
     scale: 2
@@ -141,7 +141,7 @@ Leo.core.draw = ->
 Leo.core.cycle = ->
     # Frame timing
     thisFrameTime = Date.now()
-    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 500) # Unit milliseconds
+    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 100) # Unit milliseconds
 
     # Camera
     Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001
@@ -550,8 +550,9 @@ class Actor
         @advanceAnimation cycleLengthMs
 
         # Position
-        @posX += @speedX
-        @posY += @speedY
+        cycleLengthS = cycleLengthMs * 0.001
+        @posX += @speedX * cycleLengthS
+        @posY += @speedY * cycleLengthS
 
 
 
@@ -705,7 +706,7 @@ class PlayerStateRunning extends PlayerStateGround
 
 
     _setSpeedAndAnim: (options = {})-> # PlayerStateRunning::_setSpeedAndAnim
-        @parent.speedX = 0.15 * @parent.direction
+        @parent.speedX = 9.0 * @parent.direction
         if @parent.direction > 0
             @parent.setAnimation 'runningRight', options.animFrame
         else
@@ -750,7 +751,7 @@ class PlayerStateAir extends PlayerState
 
 
     _setSpeedAndAnim: -> # PlayerStateAir::_setSpeedAndAnim
-        @parent.speedX = 0.15 * @parent.direction
+        @parent.speedX = 9.0 * @parent.direction
         if @parent.direction > 0
             @parent.setAnimation 'jumpingRight'
         else
@@ -767,7 +768,7 @@ class PlayerStateJumping extends PlayerStateAir
 
     constructor: (data) -> # PlayerStateJumping::constructor
         super
-        @parent.speedY = -0.35
+        @parent.speedY = -21
 
     update: (cycleLengthMs) -> # PlayerStateJumping::update
         if @parent.speedY <= 0

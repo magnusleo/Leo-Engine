@@ -33,7 +33,7 @@
   _editTile = -1;
 
   Leo.environment = {
-    gravity: 1.0
+    gravity: 60
   };
 
   Leo.view = {
@@ -155,7 +155,7 @@
     var actor, cycleLengthMs, thisFrameTime, _i, _len, _ref;
 
     thisFrameTime = Date.now();
-    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 500);
+    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 100);
     Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001;
     _ref = Leo.actors;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -775,9 +775,12 @@
     };
 
     Actor.prototype.update = function(cycleLengthMs) {
+      var cycleLengthS;
+
       this.advanceAnimation(cycleLengthMs);
-      this.posX += this.speedX;
-      return this.posY += this.speedY;
+      cycleLengthS = cycleLengthMs * 0.001;
+      this.posX += this.speedX * cycleLengthS;
+      return this.posY += this.speedY * cycleLengthS;
     };
 
     return Actor;
@@ -957,7 +960,7 @@
       if (options == null) {
         options = {};
       }
-      this.parent.speedX = 0.15 * this.parent.direction;
+      this.parent.speedX = 9.0 * this.parent.direction;
       if (this.parent.direction > 0) {
         return this.parent.setAnimation('runningRight', options.animFrame);
       } else {
@@ -1012,7 +1015,7 @@
     };
 
     PlayerStateAir.prototype._setSpeedAndAnim = function() {
-      this.parent.speedX = 0.15 * this.parent.direction;
+      this.parent.speedX = 9.0 * this.parent.direction;
       if (this.parent.direction > 0) {
         return this.parent.setAnimation('jumpingRight');
       } else {
@@ -1033,7 +1036,7 @@
 
     function PlayerStateJumping(data) {
       PlayerStateJumping.__super__.constructor.apply(this, arguments);
-      this.parent.speedY = -0.35;
+      this.parent.speedY = -21;
     }
 
     PlayerStateJumping.prototype.update = function(cycleLengthMs) {
