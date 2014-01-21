@@ -141,21 +141,23 @@ Leo.core.draw = ->
 Leo.core.cycle = ->
     # Frame timing
     thisFrameTime = Date.now()
-    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 100) # Unit milliseconds
+    cycleLength = Math.min(thisFrameTime - _latestFrameTime, 100) * 0.001 # Unit seconds
+    unless cycleLength
+        return
 
     # Camera
-    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001
+    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLength
 
     # Actors
     for actor in Leo.actors
-        actor.update(cycleLengthMs)
+        actor.update(cycleLength)
 
     # Finish the frame
     Leo.core.draw()
     _latestFrameTime = thisFrameTime
     window.requestAnimationFrame(Leo.core.cycle)
 
-    Leo.cycleCallback(cycleLengthMs)
+    Leo.cycleCallback(cycleLength)
 
 Leo.core.DATA_TYPES =
     CHUNK: 0
@@ -200,6 +202,43 @@ Leo.event._keyup = (e) ->
 
 Leo.event.keyup = (e) ->
     # Override Leo.event.keyup with your keyup function
+
+
+# I/O
+Leo.io = {}
+
+Leo.io.getPressedKeys = ->
+    return _pressedKeys
+
+Leo.io.isKeyPressed = (key) ->
+    if typeof key is 'string'
+        key = Leo.util.KEY_CODES[key.toUpperCase()]
+    unless typeof key is 'number'
+        return false
+
+    return _pressedKeys.indexOf(key) > -1
+
+Leo.io.anyKeyPressed = (keys) ->
+    keyCodes = Leo.util.KEY_CODES
+    if typeof key is 'string'
+        key = [key]
+    for key in keys
+        if typeof key is 'string'
+            key = keyCodes[key.toUpperCase()]
+        if _pressedKeys.indexOf(key) > -1
+            return true
+    return false
+
+Leo.io.allKeysPressed = (keys) ->
+    keyCodes = Leo.util.KEY_CODES
+    if typeof key is 'string'
+        key = [key]
+    for key in keys
+        if typeof key is 'string'
+            key = keyCodes[key.toUpperCase()]
+        if _pressedKeys.indexOf(key) == -1
+            return false
+    return true
 
 
 # Sprites
@@ -257,6 +296,7 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
         top: false
         left: false
         right: false
+        friction: 1.0 #TODO: Get data from colliding tiles
 
     newPosX = actor.posX
     newPosY = actor.posY
@@ -324,6 +364,7 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                         neighborTile = layer.getTile(x, y, -1, 0)
                         if neighborTile == -1
                             newPosX = x - actor.colW - 0.01
+                            newSpeedX = 0
                             collisions.any = true
                             collisions.right = true
                             Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
@@ -334,6 +375,7 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                         neighborTile = layer.getTile(x, y, 1, 0)
                         if neighborTile == -1
                             newPosX = x + 1
+                            newSpeedX = 0
                             collisions.any = true
                             collisions.left = true
                             Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
@@ -533,26 +575,41 @@ class Actor
         @animName = animName
 
 
-    advanceAnimation: (cycleLengthMs) -> # Actor::advanceAnimation
+    advanceAnimation: (cycleLength) -> # Actor::advanceAnimation
         animation = @animations[@animName]
         maxFrame = animation.frames.length - 1
         if @animFrame > maxFrame then @animFrame = maxFrame
-        @animFrameTimeLeft -= cycleLengthMs
+        @animFrameTimeLeft -= cycleLength
         while @animFrameTimeLeft < 0
             @animFrame++
             if @animFrame > maxFrame
                 if animation.doLoop then @animFrame = 0 else @animFrame--
             @animFrameTimeLeft = animation.frames[@animFrame][6] + @animFrameTimeLeft
 
+    jumpToAnimationFrame: (frameNum) ->
+        maxFrameNum = @animations[@animName].frames.length - 1
+        @animFrame = Math.min(frameNum, maxFrameNum)
 
-    update: (cycleLengthMs) -> # Actor::update
+
+    update: (cycleLength) -> # Actor::update
         # Animation
-        @advanceAnimation cycleLengthMs
+        @advanceAnimation cycleLength
 
         # Position
-        cycleLengthS = cycleLengthMs * 0.001
-        @posX += @speedX * cycleLengthS
-        @posY += @speedY * cycleLengthS
+        @posX += @speedX * cycleLength
+        @posY += @speedY * cycleLength
+
+
+    decelerate: (axis, amount) -> # Actor::decelerate
+        if not amount
+            return
+        axis = axis.toUpperCase()
+        unitName = 'speed' + axis
+        curSpeed = @[unitName]
+        if curSpeed > 0
+            @[unitName] = Math.max(curSpeed - amount, 0)
+        else
+            @[unitName] = Math.min(curSpeed + amount, 0)
 
 
 
@@ -562,6 +619,9 @@ class Player extends Actor
     constructor: (data) -> # Player::constructor
         super(data)
 
+        @accX = 0
+        @dirPhysical = 0
+        @dirVisual = 1
         @state = new PlayerStateStanding(this)
         @stateBefore = null
 
@@ -577,23 +637,29 @@ class Player extends Actor
         @state.handleInput(e)
 
 
-    update: (cycleLengthMs) -> # Player::update
-        @speedY += Leo.environment.gravity * cycleLengthMs * 0.001
+    update: (cycleLength) -> # Player::update
+        @speedY += Leo.environment.gravity * cycleLength
+        @speedX += @accX * cycleLength
+        @speedX = Math.min(@speedX, @speedXMax)
+        @speedX = Math.max(@speedX, -@speedXMax)
 
-        super(cycleLengthMs)
-        @state.update(cycleLengthMs)
+        super(cycleLength)
+        @state.update(cycleLength)
 
         collisions = Leo.collision.actorToLayer this, Leo.layers.get('ground'),
             reposition: true
 
         # Update player state
         if collisions.bottom
-            if @speedX == 0
+            if @dirPhysical == 0
                 @setState PlayerStateStanding
+                @decelerate('x', collisions.friction * @decelerationGround * cycleLength)
             else
                 @setState PlayerStateRunning
         else
             @setState PlayerStateFalling
+            if @dirPhysical == 0
+                @decelerate('x', @decelerationAir * cycleLength)
 
 
 
@@ -617,13 +683,15 @@ class PlayerState
         switch e.keyCode
 
             when key.LEFT
-                @parent.direction = -1
+                @parent.dirPhysical = -1
+                @parent.dirVisual = -1
 
             when key.RIGHT
-                @parent.direction = 1
+                @parent.dirPhysical = 1
+                @parent.dirVisual = 1
 
 
-    update: (cycleLengthMs) -> # PlayerState::update
+    update: (cycleLength) -> # PlayerState::update
 
 
 
@@ -651,9 +719,9 @@ class PlayerStateStanding extends PlayerStateGround
     constructor: (data) -> # PlayerStateStanding::constructor
         super(data)
 
-        @parent.speedX = 0
+        @parent.accX = 0
 
-        if @parent.direction > 0
+        if @parent.dirVisual > 0
             @parent.setAnimation 'standingRight'
         else
             @parent.setAnimation 'standingLeft'
@@ -678,7 +746,7 @@ class PlayerStateRunning extends PlayerStateGround
         @_setSpeedAndAnim()
 
         if @parent.stateBefore instanceof PlayerStateAir
-            @parent.animFrame = 1
+            @parent.jumpToAnimationFrame(1)
 
 
     handleInput: (e) -> # PlayerStateRunning::handleInput
@@ -693,21 +761,25 @@ class PlayerStateRunning extends PlayerStateGround
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    keyIndexLeft = _pressedKeys.indexOf key.LEFT
-                    keyIndexRight = _pressedKeys.indexOf key.RIGHT
-                    if keyIndexLeft is -1 and keyIndexRight is -1
+                    rightPressed = Leo.io.isKeyPressed(key.RIGHT)
+                    leftPressed = Leo.io.isKeyPressed(key.LEFT)
+                    if not leftPressed and not rightPressed
                         @parent.setState PlayerStateStanding
-                    else if keyIndexLeft is -1 and keyIndexRight > -1
-                        @parent.direction = 1
+                        @parent.dirPhysical = 0
+                        @parent.accX = 0
+                    else if leftPressed and not rightPressed
+                        @parent.dirPhysical = -1
+                        @parent.dirVisual = -1
                         @_setSpeedAndAnim { animFrame: 1 }
-                    else # if keyIndexLeft > -1 and keyIndexRight is -1
-                        @parent.direction = -1
+                    else # if not leftPressed and rightPressed
+                        @parent.dirPhysical = 1
+                        @parent.dirVisual = 1
                         @_setSpeedAndAnim { animFrame: 1 }
 
 
     _setSpeedAndAnim: (options = {})-> # PlayerStateRunning::_setSpeedAndAnim
-        @parent.speedX = 9.0 * @parent.direction
-        if @parent.direction > 0
+        @parent.accX = @parent.accelerationGround * @parent.dirPhysical
+        if @parent.dirVisual > 0
             @parent.setAnimation 'runningRight', options.animFrame
         else
             @parent.setAnimation 'runningLeft', options.animFrame
@@ -719,10 +791,10 @@ class PlayerStateAir extends PlayerState
     constructor: (data) -> # PlayerStateAir::constructor
         super
 
-        if @parent.direction > 0
-                @parent.setAnimation 'jumpingRight'
-            else
-                @parent.setAnimation 'jumpingLeft'
+        if @parent.dirVisual > 0
+            @parent.setAnimation 'jumpingRight'
+        else
+            @parent.setAnimation 'jumpingLeft'
 
 
     handleInput: (e) -> # PlayerStateAir::handleInput
@@ -737,28 +809,30 @@ class PlayerStateAir extends PlayerState
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    # Go in the direction of the pressed key
-                    keyIndexLeft = _pressedKeys.indexOf key.LEFT
-                    keyIndexRight = _pressedKeys.indexOf key.RIGHT
-                    if keyIndexLeft is -1 and keyIndexRight is -1
-                        @parent.speedX = 0
-                    else if keyIndexLeft is -1 and keyIndexRight > -1
-                        @parent.direction = 1
-                        @_setSpeedAndAnim()
-                    else # if keyIndexLeft > -1 and keyIndexRight is -1
-                        @parent.direction = -1
-                        @_setSpeedAndAnim()
+                    rightPressed = Leo.io.isKeyPressed(key.RIGHT)
+                    leftPressed = Leo.io.isKeyPressed(key.LEFT)
+                    if not leftPressed and not rightPressed
+                        @parent.dirPhysical = 0
+                        @parent.accX = 0
+                    else if leftPressed and not rightPressed
+                        @parent.dirPhysical = -1
+                        @parent.dirVisual = -1
+                        @_setSpeedAndAnim { animFrame: 1 }
+                    else # if not leftPressed and rightPressed
+                        @parent.dirPhysical = 1
+                        @parent.dirVisual = 1
+                        @_setSpeedAndAnim { animFrame: 1 }
 
 
     _setSpeedAndAnim: -> # PlayerStateAir::_setSpeedAndAnim
-        @parent.speedX = 9.0 * @parent.direction
-        if @parent.direction > 0
+        @parent.accX = @parent.accelerationAir * @parent.dirPhysical
+        if @parent.dirVisual > 0
             @parent.setAnimation 'jumpingRight'
         else
             @parent.setAnimation 'jumpingLeft'
 
 
-    update: (cycleLengthMs) -> # PlayerStateAir::update
+    update: (cycleLength) -> # PlayerStateAir::update
         super
 
 
@@ -770,7 +844,7 @@ class PlayerStateJumping extends PlayerStateAir
         super
         @parent.speedY = -21
 
-    update: (cycleLengthMs) -> # PlayerStateJumping::update
+    update: (cycleLength) -> # PlayerStateJumping::update
         if @parent.speedY <= 0
             @parent.setState PlayerStateFalling
 
@@ -998,34 +1072,34 @@ window.onload = ->
         animations:
             jumpingLeft:
                 frames: [
-                    [19,33, 30,32, -4,0, 192]
+                    [19,33, 30,32, -4,0, 0.192]
                 ]
                 doLoop: false
             jumpingRight:
                 frames: [
-                    [19,0, 30,32, -8,0, 192]
+                    [19,0, 30,32, -8,0, 0.192]
                 ]
                 doLoop: false
             runningLeft:
                 frames: [
-                    [19,33, 30,32, -4,0, 192]
-                    [49,33, 13,32,  4,0, 192]
+                    [19,33, 30,32, -4,0, 0.192]
+                    [49,33, 13,32,  4,0, 0.192]
                 ]
                 doLoop: true
             runningRight:
                 frames: [
-                    [19,0, 30,32, -8,0, 192]
-                    [49,0, 13,32,  1,0, 192]
+                    [19,0, 30,32, -8,0, 0.192]
+                    [49,0, 13,32,  1,0, 0.192]
                 ]
                 doLoop: true
             standingLeft:
                 frames: [
-                    [0,33, 19,32, 1,0, 1000]
+                    [0,33, 19,32, 1,0, 1]
                 ]
                 doLoop: false
             standingRight:
                 frames: [
-                    [0,0, 19,32, -1,0, 1000]
+                    [0,0, 19,32, -1,0, 1]
                 ]
                 doLoop: false
         animName: 'standingRight'
@@ -1033,6 +1107,11 @@ window.onload = ->
         posY: 6
         colW: 1
         colH: 2
+        speedXMax: 9
+        accelerationAir: 900
+        decelerationAir: 900
+        accelerationGround: 900
+        decelerationGround: 900
 
     Leo.cycleCallback = ->
         Leo.view.cameraPosX = Leo.player.posX - 15

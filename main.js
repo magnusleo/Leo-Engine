@@ -152,20 +152,23 @@
   };
 
   Leo.core.cycle = function() {
-    var actor, cycleLengthMs, thisFrameTime, _i, _len, _ref;
+    var actor, cycleLength, thisFrameTime, _i, _len, _ref;
 
     thisFrameTime = Date.now();
-    cycleLengthMs = Math.min(thisFrameTime - _latestFrameTime, 100);
-    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLengthMs * 0.001;
+    cycleLength = Math.min(thisFrameTime - _latestFrameTime, 100) * 0.001;
+    if (!cycleLength) {
+      return;
+    }
+    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLength;
     _ref = Leo.actors;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       actor = _ref[_i];
-      actor.update(cycleLengthMs);
+      actor.update(cycleLength);
     }
     Leo.core.draw();
     _latestFrameTime = thisFrameTime;
     window.requestAnimationFrame(Leo.core.cycle);
-    return Leo.cycleCallback(cycleLengthMs);
+    return Leo.cycleCallback(cycleLength);
   };
 
   Leo.core.DATA_TYPES = {
@@ -213,6 +216,60 @@
   };
 
   Leo.event.keyup = function(e) {};
+
+  Leo.io = {};
+
+  Leo.io.getPressedKeys = function() {
+    return _pressedKeys;
+  };
+
+  Leo.io.isKeyPressed = function(key) {
+    if (typeof key === 'string') {
+      key = Leo.util.KEY_CODES[key.toUpperCase()];
+    }
+    if (typeof key !== 'number') {
+      return false;
+    }
+    return _pressedKeys.indexOf(key) > -1;
+  };
+
+  Leo.io.anyKeyPressed = function(keys) {
+    var key, keyCodes, _i, _len;
+
+    keyCodes = Leo.util.KEY_CODES;
+    if (typeof key === 'string') {
+      key = [key];
+    }
+    for (_i = 0, _len = keys.length; _i < _len; _i++) {
+      key = keys[_i];
+      if (typeof key === 'string') {
+        key = keyCodes[key.toUpperCase()];
+      }
+      if (_pressedKeys.indexOf(key) > -1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  Leo.io.allKeysPressed = function(keys) {
+    var key, keyCodes, _i, _len;
+
+    keyCodes = Leo.util.KEY_CODES;
+    if (typeof key === 'string') {
+      key = [key];
+    }
+    for (_i = 0, _len = keys.length; _i < _len; _i++) {
+      key = keys[_i];
+      if (typeof key === 'string') {
+        key = keyCodes[key.toUpperCase()];
+      }
+      if (_pressedKeys.indexOf(key) === -1) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   Leo.sprite = {};
 
@@ -278,7 +335,8 @@
       bottom: false,
       top: false,
       left: false,
-      right: false
+      right: false,
+      friction: 1.0
     };
     newPosX = actor.posX;
     newPosY = actor.posY;
@@ -339,6 +397,7 @@
               neighborTile = layer.getTile(x, y, -1, 0);
               if (neighborTile === -1) {
                 newPosX = x - actor.colW - 0.01;
+                newSpeedX = 0;
                 collisions.any = true;
                 collisions.right = true;
                 Leo.view.drawOnce({
@@ -363,6 +422,7 @@
               neighborTile = layer.getTile(x, y, 1, 0);
               if (neighborTile === -1) {
                 newPosX = x + 1;
+                newSpeedX = 0;
                 collisions.any = true;
                 collisions.left = true;
                 Leo.view.drawOnce({
@@ -750,7 +810,7 @@
       return this.animName = animName;
     };
 
-    Actor.prototype.advanceAnimation = function(cycleLengthMs) {
+    Actor.prototype.advanceAnimation = function(cycleLength) {
       var animation, maxFrame, _results;
 
       animation = this.animations[this.animName];
@@ -758,7 +818,7 @@
       if (this.animFrame > maxFrame) {
         this.animFrame = maxFrame;
       }
-      this.animFrameTimeLeft -= cycleLengthMs;
+      this.animFrameTimeLeft -= cycleLength;
       _results = [];
       while (this.animFrameTimeLeft < 0) {
         this.animFrame++;
@@ -774,13 +834,33 @@
       return _results;
     };
 
-    Actor.prototype.update = function(cycleLengthMs) {
-      var cycleLengthS;
+    Actor.prototype.jumpToAnimationFrame = function(frameNum) {
+      var maxFrameNum;
 
-      this.advanceAnimation(cycleLengthMs);
-      cycleLengthS = cycleLengthMs * 0.001;
-      this.posX += this.speedX * cycleLengthS;
-      return this.posY += this.speedY * cycleLengthS;
+      maxFrameNum = this.animations[this.animName].frames.length - 1;
+      return this.animFrame = Math.min(frameNum, maxFrameNum);
+    };
+
+    Actor.prototype.update = function(cycleLength) {
+      this.advanceAnimation(cycleLength);
+      this.posX += this.speedX * cycleLength;
+      return this.posY += this.speedY * cycleLength;
+    };
+
+    Actor.prototype.decelerate = function(axis, amount) {
+      var curSpeed, unitName;
+
+      if (!amount) {
+        return;
+      }
+      axis = axis.toUpperCase();
+      unitName = 'speed' + axis;
+      curSpeed = this[unitName];
+      if (curSpeed > 0) {
+        return this[unitName] = Math.max(curSpeed - amount, 0);
+      } else {
+        return this[unitName] = Math.min(curSpeed + amount, 0);
+      }
     };
 
     return Actor;
@@ -792,6 +872,9 @@
 
     function Player(data) {
       Player.__super__.constructor.call(this, data);
+      this.accX = 0;
+      this.dirPhysical = 0;
+      this.dirVisual = 1;
       this.state = new PlayerStateStanding(this);
       this.stateBefore = null;
     }
@@ -808,23 +891,30 @@
       return this.state.handleInput(e);
     };
 
-    Player.prototype.update = function(cycleLengthMs) {
+    Player.prototype.update = function(cycleLength) {
       var collisions;
 
-      this.speedY += Leo.environment.gravity * cycleLengthMs * 0.001;
-      Player.__super__.update.call(this, cycleLengthMs);
-      this.state.update(cycleLengthMs);
+      this.speedY += Leo.environment.gravity * cycleLength;
+      this.speedX += this.accX * cycleLength;
+      this.speedX = Math.min(this.speedX, this.speedXMax);
+      this.speedX = Math.max(this.speedX, -this.speedXMax);
+      Player.__super__.update.call(this, cycleLength);
+      this.state.update(cycleLength);
       collisions = Leo.collision.actorToLayer(this, Leo.layers.get('ground'), {
         reposition: true
       });
       if (collisions.bottom) {
-        if (this.speedX === 0) {
-          return this.setState(PlayerStateStanding);
+        if (this.dirPhysical === 0) {
+          this.setState(PlayerStateStanding);
+          return this.decelerate('x', collisions.friction * this.decelerationGround * cycleLength);
         } else {
           return this.setState(PlayerStateRunning);
         }
       } else {
-        return this.setState(PlayerStateFalling);
+        this.setState(PlayerStateFalling);
+        if (this.dirPhysical === 0) {
+          return this.decelerate('x', this.decelerationAir * cycleLength);
+        }
       }
     };
 
@@ -843,13 +933,15 @@
       key = Leo.util.KEY_CODES;
       switch (e.keyCode) {
         case key.LEFT:
-          return this.parent.direction = -1;
+          this.parent.dirPhysical = -1;
+          return this.parent.dirVisual = -1;
         case key.RIGHT:
-          return this.parent.direction = 1;
+          this.parent.dirPhysical = 1;
+          return this.parent.dirVisual = 1;
       }
     };
 
-    PlayerState.prototype.update = function(cycleLengthMs) {};
+    PlayerState.prototype.update = function(cycleLength) {};
 
     return PlayerState;
 
@@ -885,8 +977,8 @@
 
     function PlayerStateStanding(data) {
       PlayerStateStanding.__super__.constructor.call(this, data);
-      this.parent.speedX = 0;
-      if (this.parent.direction > 0) {
+      this.parent.accX = 0;
+      if (this.parent.dirVisual > 0) {
         this.parent.setAnimation('standingRight');
       } else {
         this.parent.setAnimation('standingLeft');
@@ -918,12 +1010,12 @@
       PlayerStateRunning.__super__.constructor.call(this, data);
       this._setSpeedAndAnim();
       if (this.parent.stateBefore instanceof PlayerStateAir) {
-        this.parent.animFrame = 1;
+        this.parent.jumpToAnimationFrame(1);
       }
     }
 
     PlayerStateRunning.prototype.handleInput = function(e) {
-      var key, keyIndexLeft, keyIndexRight;
+      var key, leftPressed, rightPressed;
 
       PlayerStateRunning.__super__.handleInput.call(this, e);
       key = Leo.util.KEY_CODES;
@@ -937,17 +1029,21 @@
         switch (e.keyCode) {
           case key.LEFT:
           case key.RIGHT:
-            keyIndexLeft = _pressedKeys.indexOf(key.LEFT);
-            keyIndexRight = _pressedKeys.indexOf(key.RIGHT);
-            if (keyIndexLeft === -1 && keyIndexRight === -1) {
-              return this.parent.setState(PlayerStateStanding);
-            } else if (keyIndexLeft === -1 && keyIndexRight > -1) {
-              this.parent.direction = 1;
+            rightPressed = Leo.io.isKeyPressed(key.RIGHT);
+            leftPressed = Leo.io.isKeyPressed(key.LEFT);
+            if (!leftPressed && !rightPressed) {
+              this.parent.setState(PlayerStateStanding);
+              this.parent.dirPhysical = 0;
+              return this.parent.accX = 0;
+            } else if (leftPressed && !rightPressed) {
+              this.parent.dirPhysical = -1;
+              this.parent.dirVisual = -1;
               return this._setSpeedAndAnim({
                 animFrame: 1
               });
             } else {
-              this.parent.direction = -1;
+              this.parent.dirPhysical = 1;
+              this.parent.dirVisual = 1;
               return this._setSpeedAndAnim({
                 animFrame: 1
               });
@@ -960,8 +1056,8 @@
       if (options == null) {
         options = {};
       }
-      this.parent.speedX = 9.0 * this.parent.direction;
-      if (this.parent.direction > 0) {
+      this.parent.accX = this.parent.accelerationGround * this.parent.dirPhysical;
+      if (this.parent.dirVisual > 0) {
         return this.parent.setAnimation('runningRight', options.animFrame);
       } else {
         return this.parent.setAnimation('runningLeft', options.animFrame);
@@ -977,7 +1073,7 @@
 
     function PlayerStateAir(data) {
       PlayerStateAir.__super__.constructor.apply(this, arguments);
-      if (this.parent.direction > 0) {
+      if (this.parent.dirVisual > 0) {
         this.parent.setAnimation('jumpingRight');
       } else {
         this.parent.setAnimation('jumpingLeft');
@@ -985,7 +1081,7 @@
     }
 
     PlayerStateAir.prototype.handleInput = function(e) {
-      var key, keyIndexLeft, keyIndexRight;
+      var key, leftPressed, rightPressed;
 
       PlayerStateAir.__super__.handleInput.apply(this, arguments);
       key = Leo.util.KEY_CODES;
@@ -999,31 +1095,38 @@
         switch (e.keyCode) {
           case key.LEFT:
           case key.RIGHT:
-            keyIndexLeft = _pressedKeys.indexOf(key.LEFT);
-            keyIndexRight = _pressedKeys.indexOf(key.RIGHT);
-            if (keyIndexLeft === -1 && keyIndexRight === -1) {
-              return this.parent.speedX = 0;
-            } else if (keyIndexLeft === -1 && keyIndexRight > -1) {
-              this.parent.direction = 1;
-              return this._setSpeedAndAnim();
+            rightPressed = Leo.io.isKeyPressed(key.RIGHT);
+            leftPressed = Leo.io.isKeyPressed(key.LEFT);
+            if (!leftPressed && !rightPressed) {
+              this.parent.dirPhysical = 0;
+              return this.parent.accX = 0;
+            } else if (leftPressed && !rightPressed) {
+              this.parent.dirPhysical = -1;
+              this.parent.dirVisual = -1;
+              return this._setSpeedAndAnim({
+                animFrame: 1
+              });
             } else {
-              this.parent.direction = -1;
-              return this._setSpeedAndAnim();
+              this.parent.dirPhysical = 1;
+              this.parent.dirVisual = 1;
+              return this._setSpeedAndAnim({
+                animFrame: 1
+              });
             }
         }
       }
     };
 
     PlayerStateAir.prototype._setSpeedAndAnim = function() {
-      this.parent.speedX = 9.0 * this.parent.direction;
-      if (this.parent.direction > 0) {
+      this.parent.accX = this.parent.accelerationAir * this.parent.dirPhysical;
+      if (this.parent.dirVisual > 0) {
         return this.parent.setAnimation('jumpingRight');
       } else {
         return this.parent.setAnimation('jumpingLeft');
       }
     };
 
-    PlayerStateAir.prototype.update = function(cycleLengthMs) {
+    PlayerStateAir.prototype.update = function(cycleLength) {
       return PlayerStateAir.__super__.update.apply(this, arguments);
     };
 
@@ -1039,7 +1142,7 @@
       this.parent.speedY = -21;
     }
 
-    PlayerStateJumping.prototype.update = function(cycleLengthMs) {
+    PlayerStateJumping.prototype.update = function(cycleLength) {
       if (this.parent.speedY <= 0) {
         return this.parent.setState(PlayerStateFalling);
       }
@@ -1312,27 +1415,27 @@
       spritesheet: 'sprite-olle.png',
       animations: {
         jumpingLeft: {
-          frames: [[19, 33, 30, 32, -4, 0, 192]],
+          frames: [[19, 33, 30, 32, -4, 0, 0.192]],
           doLoop: false
         },
         jumpingRight: {
-          frames: [[19, 0, 30, 32, -8, 0, 192]],
+          frames: [[19, 0, 30, 32, -8, 0, 0.192]],
           doLoop: false
         },
         runningLeft: {
-          frames: [[19, 33, 30, 32, -4, 0, 192], [49, 33, 13, 32, 4, 0, 192]],
+          frames: [[19, 33, 30, 32, -4, 0, 0.192], [49, 33, 13, 32, 4, 0, 0.192]],
           doLoop: true
         },
         runningRight: {
-          frames: [[19, 0, 30, 32, -8, 0, 192], [49, 0, 13, 32, 1, 0, 192]],
+          frames: [[19, 0, 30, 32, -8, 0, 0.192], [49, 0, 13, 32, 1, 0, 0.192]],
           doLoop: true
         },
         standingLeft: {
-          frames: [[0, 33, 19, 32, 1, 0, 1000]],
+          frames: [[0, 33, 19, 32, 1, 0, 1]],
           doLoop: false
         },
         standingRight: {
-          frames: [[0, 0, 19, 32, -1, 0, 1000]],
+          frames: [[0, 0, 19, 32, -1, 0, 1]],
           doLoop: false
         }
       },
@@ -1340,7 +1443,12 @@
       posX: 6,
       posY: 6,
       colW: 1,
-      colH: 2
+      colH: 2,
+      speedXMax: 9,
+      accelerationAir: 900,
+      decelerationAir: 900,
+      accelerationGround: 900,
+      decelerationGround: 900
     });
     Leo.cycleCallback = function() {
       return Leo.view.cameraPosX = Leo.player.posX - 15;
