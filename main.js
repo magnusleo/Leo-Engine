@@ -887,6 +887,10 @@
       return this.state = new state(this);
     };
 
+    Player.prototype.stateIs = function(state) {
+      return this.state instanceof state;
+    };
+
     Player.prototype.handleInput = function(e) {
       return this.state.handleInput(e);
     };
@@ -910,7 +914,7 @@
         } else {
           return this.setState(PlayerStateRunning);
         }
-      } else {
+      } else if (!this.stateIs(PlayerStateJumping)) {
         this.setState(PlayerStateFalling);
         if (this.dirPhysical === 0) {
           return this.decelerate('x', this.decelerationAir * cycleLength);
@@ -1142,8 +1146,23 @@
       this.parent.speedY = -21;
     }
 
+    PlayerStateJumping.prototype.handleInput = function(e) {
+      var key;
+
+      PlayerStateJumping.__super__.handleInput.apply(this, arguments);
+      key = Leo.util.KEY_CODES;
+      if (e.type === 'keyup') {
+        switch (e.keyCode) {
+          case key.UP:
+          case key.Z:
+            this.parent.speedY *= 0.5;
+            return this.parent.setState(PlayerStateFalling);
+        }
+      }
+    };
+
     PlayerStateJumping.prototype.update = function(cycleLength) {
-      if (this.parent.speedY <= 0) {
+      if (this.parent.speedY >= 0) {
         return this.parent.setState(PlayerStateFalling);
       }
     };

@@ -633,6 +633,10 @@ class Player extends Actor
         @state = new state(this)
 
 
+    stateIs: (state) -> # Player::stateIs
+        return @state instanceof state
+
+
     handleInput: (e) -> # Player::handleInput
         @state.handleInput(e)
 
@@ -656,7 +660,7 @@ class Player extends Actor
                 @decelerate('x', collisions.friction * @decelerationGround * cycleLength)
             else
                 @setState PlayerStateRunning
-        else
+        else if not @stateIs PlayerStateJumping
             @setState PlayerStateFalling
             if @dirPhysical == 0
                 @decelerate('x', @decelerationAir * cycleLength)
@@ -844,15 +848,26 @@ class PlayerStateJumping extends PlayerStateAir
         super
         @parent.speedY = -21
 
+
+    handleInput: (e) -> # PlayerStateJumping::handleInput
+        super
+        key = Leo.util.KEY_CODES
+
+        if e.type is 'keyup'
+            switch e.keyCode
+                when key.UP, key.Z
+                    @parent.speedY *= 0.5
+                    @parent.setState PlayerStateFalling
+
+
     update: (cycleLength) -> # PlayerStateJumping::update
-        if @parent.speedY <= 0
+        if @parent.speedY >= 0
             @parent.setState PlayerStateFalling
 
 
 
 Leo.PlayerStateFalling =
 class PlayerStateFalling extends PlayerStateAir
-
 
 
 
