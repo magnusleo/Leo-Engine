@@ -5,6 +5,8 @@
 
 (function() {
   window.addEventListener('load', function() {
+    var playerSprite;
+
     Leo.core.init();
     Leo.event.keydown = function(e) {
       var key;
@@ -20,35 +22,147 @@
     Leo.event.keyup = function(e) {
       return Leo.player.handleInput(e);
     };
-    Leo.player = new Leo.Player({
-      spritesheet: 'sprite-olle.png',
-      animations: {
-        jumpingLeft: {
-          frames: [[19, 33, 30, 32, -4, 0, 0.192]],
-          doLoop: false
-        },
-        jumpingRight: {
-          frames: [[19, 0, 30, 32, -8, 0, 0.192]],
-          doLoop: false
-        },
-        runningLeft: {
-          frames: [[19, 33, 30, 32, -6, -1, 0.18], [49, 33, 13, 32, 1, 0, 0.13], [62, 33, 23, 32, -4, -1, 0.18], [49, 33, 13, 32, 1, 0, 0.13]],
-          doLoop: true
-        },
-        runningRight: {
-          frames: [[19, 0, 30, 32, -9, -1, 0.18], [49, 0, 13, 32, 1, 0, 0.13], [62, 0, 23, 32, -4, -1, 0.18], [49, 0, 13, 32, 1, 0, 0.13]],
-          doLoop: true
-        },
-        standingLeft: {
-          frames: [[0, 33, 19, 32, 1, 0, 1]],
-          doLoop: false
-        },
-        standingRight: {
-          frames: [[0, 0, 19, 32, -1, 0, 1]],
-          doLoop: false
+    playerSprite = new Leo.sprite.Sprite('sprite-olle.png');
+    playerSprite.addAnimation({
+      name: 'jumpingLeft',
+      frames: [
+        {
+          x: 19,
+          y: 33,
+          w: 30,
+          h: 32,
+          offsetX: -4,
+          offsetY: 0,
+          duration: 0.192
         }
-      },
-      animName: 'standingRight',
+      ],
+      isLooping: false
+    });
+    playerSprite.addAnimation({
+      name: 'jumpingRight',
+      frames: [
+        {
+          x: 19,
+          y: 0,
+          w: 30,
+          h: 32,
+          offsetX: -8,
+          offsetY: 0,
+          duration: 0.192
+        }
+      ],
+      isLooping: false
+    });
+    playerSprite.addAnimation({
+      name: 'runningLeft',
+      frames: [
+        {
+          x: 19,
+          y: 33,
+          w: 30,
+          h: 32,
+          offsetX: -6,
+          offsetY: -1,
+          duration: 0.18
+        }, {
+          x: 49,
+          y: 33,
+          w: 13,
+          h: 32,
+          offsetX: 1,
+          offsetY: 0,
+          duration: 0.13
+        }, {
+          x: 62,
+          y: 33,
+          w: 23,
+          h: 32,
+          offsetX: -4,
+          offsetY: -1,
+          duration: 0.18
+        }, {
+          x: 49,
+          y: 33,
+          w: 13,
+          h: 32,
+          offsetX: 1,
+          offsetY: 0,
+          duration: 0.13
+        }
+      ],
+      isLooping: true
+    });
+    playerSprite.addAnimation({
+      name: 'runningRight',
+      frames: [
+        {
+          x: 19,
+          y: 0,
+          w: 30,
+          h: 32,
+          offsetX: -9,
+          offsetY: -1,
+          duration: 0.18
+        }, {
+          x: 49,
+          y: 0,
+          w: 13,
+          h: 32,
+          offsetX: 1,
+          offsetY: 0,
+          duration: 0.13
+        }, {
+          x: 62,
+          y: 0,
+          w: 23,
+          h: 32,
+          offsetX: -4,
+          offsetY: -1,
+          duration: 0.18
+        }, {
+          x: 49,
+          y: 0,
+          w: 13,
+          h: 32,
+          offsetX: 1,
+          offsetY: 0,
+          duration: 0.13
+        }
+      ],
+      isLooping: true
+    });
+    playerSprite.addAnimation({
+      name: 'standingLeft',
+      frames: [
+        {
+          x: 0,
+          y: 33,
+          w: 19,
+          h: 32,
+          offsetX: 1,
+          offsetY: 0,
+          duration: 1
+        }
+      ],
+      isLooping: false
+    });
+    playerSprite.addAnimation({
+      name: 'standingRight',
+      frames: [
+        {
+          x: 0,
+          y: 0,
+          w: 19,
+          h: 32,
+          offsetX: -1,
+          offsetY: 0,
+          duration: 1
+        }
+      ],
+      isLooping: false
+    });
+    Leo.player = new Leo.Player({
+      sprite: playerSprite,
       posX: 6,
       posY: 6,
       colW: 1,

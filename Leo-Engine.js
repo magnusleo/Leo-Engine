@@ -4,7 +4,7 @@
 
 
 (function() {
-  var Actor, Chunk, Layer, Leo, Line, Player, PlayerState, PlayerStateAir, PlayerStateFalling, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, Rect, Shape, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _ref, _ref1, _view, _viewCtx,
+  var Actor, Animation, Chunk, Frame, Layer, Leo, Line, Player, PlayerState, PlayerStateAir, PlayerStateFalling, PlayerStateGround, PlayerStateJumping, PlayerStateRunning, PlayerStateStanding, Rect, Shape, Sprite, _camH, _camW, _camX, _camY, _editTile, _frameBuffer, _frameBufferCtx, _latestFrameTime, _pressedKeys, _ref, _ref1, _view, _viewCtx,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -69,6 +69,8 @@
   Leo.shapes = [];
 
   Leo.core = {};
+
+  Leo.core.imgPath = '_img/';
 
   Leo.core.init = function() {
     _view = document.getElementById('leo-view');
@@ -271,32 +273,6 @@
     return true;
   };
 
-  Leo.sprite = {};
-
-  Leo.sprite.getImg = function(path) {
-    var _img, _imgObj;
-
-    _img = Leo.sprite._img;
-    if (_img[path]) {
-      return _img[path];
-    } else {
-      _imgObj = _img[path] = new Image();
-      _imgObj.src = '_img/' + path;
-      return _imgObj;
-    }
-  };
-
-  Leo.sprite.remove = function(path) {
-    var _img;
-
-    _img = Leo.sprite._img;
-    if (_img[path]) {
-      return _img[path] = null;
-    }
-  };
-
-  Leo.sprite._img = {};
-
   Leo.layers = {};
 
   Leo.layers.objects = [];
@@ -320,6 +296,30 @@
     }
     return null;
   };
+
+  Leo.layers.getImg = function(path) {
+    var _img, _imgObj;
+
+    _img = Leo.layers._img;
+    if (_img[path]) {
+      return _img[path];
+    } else {
+      _imgObj = _img[path] = new Image();
+      _imgObj.src = '_img/' + path;
+      return _imgObj;
+    }
+  };
+
+  Leo.layers.removeImg = function(path) {
+    var _img;
+
+    _img = Leo.layers._img;
+    if (_img[path]) {
+      return _img[path] = null;
+    }
+  };
+
+  Leo.layers._img = {};
 
   Leo.collision = {};
 
@@ -768,17 +768,6 @@
     function Actor(properties) {
       var key, val;
 
-      this.spritesheet = '';
-      this.animations = {
-        example: {
-          frames: [],
-          doLoop: false,
-          completeFallback: function() {}
-        }
-      };
-      this.animFrameTimeLeft = 0;
-      this.animFrame = 0;
-      this.animName = '';
       this.posX = 0;
       this.posY = 0;
       this.speedX = 0;
@@ -787,62 +776,22 @@
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = Leo.sprite.getImg(this.spritesheet);
       Leo.actors.push(this);
     }
 
     Actor.prototype.draw = function() {
-      var frame;
-
-      frame = this.animations[this.animName].frames[this.animFrame];
-      return _frameBufferCtx.drawImage(this.spriteImg, frame[0], frame[1], frame[2], frame[3], Leo.view.posToPx(this.posX, 'x') + frame[4], Leo.view.posToPx(this.posY, 'y') + frame[5], frame[2], frame[3]);
+      return this.sprite.draw(this.posX, this.posY);
     };
 
-    Actor.prototype.setAnimation = function(animName, animFrame) {
-      if (animName == null) {
-        animName = '';
+    Actor.prototype.setSprite = function(sprite) {
+      if (!(sprite instanceof Sprite)) {
+        throw 'Actor::setSprite - Missing Sprite';
       }
-      if (animFrame == null) {
-        animFrame = 0;
-      }
-      this.animFrame = animFrame;
-      this.animFrameTimeLeft = this.animations[animName].frames[0][6];
-      return this.animName = animName;
-    };
-
-    Actor.prototype.advanceAnimation = function(cycleLength) {
-      var animation, maxFrame, _results;
-
-      animation = this.animations[this.animName];
-      maxFrame = animation.frames.length - 1;
-      if (this.animFrame > maxFrame) {
-        this.animFrame = maxFrame;
-      }
-      this.animFrameTimeLeft -= cycleLength;
-      _results = [];
-      while (this.animFrameTimeLeft < 0) {
-        this.animFrame++;
-        if (this.animFrame > maxFrame) {
-          if (animation.doLoop) {
-            this.animFrame = 0;
-          } else {
-            this.animFrame--;
-          }
-        }
-        _results.push(this.animFrameTimeLeft = animation.frames[this.animFrame][6] + this.animFrameTimeLeft);
-      }
-      return _results;
-    };
-
-    Actor.prototype.jumpToAnimationFrame = function(frameNum) {
-      var maxFrameNum;
-
-      maxFrameNum = this.animations[this.animName].frames.length - 1;
-      return this.animFrame = Math.min(frameNum, maxFrameNum);
+      return this.sprite = sprite;
     };
 
     Actor.prototype.update = function(cycleLength) {
-      this.advanceAnimation(cycleLength);
+      this.sprite.advanceAnimation(cycleLength);
       this.posX += this.speedX * cycleLength;
       return this.posY += this.speedY * cycleLength;
     };
@@ -871,7 +820,7 @@
     __extends(Player, _super);
 
     function Player(data) {
-      Player.__super__.constructor.call(this, data);
+      Player.__super__.constructor.apply(this, arguments);
       this.accX = 0;
       this.dirPhysical = 0;
       this.dirVisual = 1;
@@ -983,9 +932,9 @@
       PlayerStateStanding.__super__.constructor.call(this, data);
       this.parent.accX = 0;
       if (this.parent.dirVisual > 0) {
-        this.parent.setAnimation('standingRight');
+        this.parent.sprite.setAnimation('standingRight');
       } else {
-        this.parent.setAnimation('standingLeft');
+        this.parent.sprite.setAnimation('standingLeft');
       }
     }
 
@@ -1014,7 +963,7 @@
       PlayerStateRunning.__super__.constructor.call(this, data);
       this._setSpeedAndAnim();
       if (this.parent.stateBefore instanceof PlayerStateAir) {
-        this.parent.jumpToAnimationFrame(1);
+        this.parent.sprite.getCurrentAnimation().jumpToFrame(1);
       }
     }
 
@@ -1043,13 +992,13 @@
               this.parent.dirPhysical = -1;
               this.parent.dirVisual = -1;
               return this._setSpeedAndAnim({
-                animFrame: 1
+                frameNum: 1
               });
             } else {
               this.parent.dirPhysical = 1;
               this.parent.dirVisual = 1;
               return this._setSpeedAndAnim({
-                animFrame: 1
+                frameNum: 1
               });
             }
         }
@@ -1062,9 +1011,9 @@
       }
       this.parent.accX = this.parent.accelerationGround * this.parent.dirPhysical;
       if (this.parent.dirVisual > 0) {
-        return this.parent.setAnimation('runningRight', options.animFrame);
+        return this.parent.sprite.setAnimation('runningRight', options.frameNum);
       } else {
-        return this.parent.setAnimation('runningLeft', options.animFrame);
+        return this.parent.sprite.setAnimation('runningLeft', options.frameNum);
       }
     };
 
@@ -1078,9 +1027,9 @@
     function PlayerStateAir(data) {
       PlayerStateAir.__super__.constructor.apply(this, arguments);
       if (this.parent.dirVisual > 0) {
-        this.parent.setAnimation('jumpingRight');
+        this.parent.sprite.setAnimation('jumpingRight');
       } else {
-        this.parent.setAnimation('jumpingLeft');
+        this.parent.sprite.setAnimation('jumpingLeft');
       }
     }
 
@@ -1108,13 +1057,13 @@
               this.parent.dirPhysical = -1;
               this.parent.dirVisual = -1;
               return this._setSpeedAndAnim({
-                animFrame: 1
+                frameNum: 1
               });
             } else {
               this.parent.dirPhysical = 1;
               this.parent.dirVisual = 1;
               return this._setSpeedAndAnim({
-                animFrame: 1
+                frameNum: 1
               });
             }
         }
@@ -1124,9 +1073,9 @@
     PlayerStateAir.prototype._setSpeedAndAnim = function() {
       this.parent.accX = this.parent.accelerationAir * this.parent.dirPhysical;
       if (this.parent.dirVisual > 0) {
-        return this.parent.setAnimation('jumpingRight');
+        return this.parent.sprite.setAnimation('jumpingRight');
       } else {
-        return this.parent.setAnimation('jumpingLeft');
+        return this.parent.sprite.setAnimation('jumpingLeft');
       }
     };
 
@@ -1204,7 +1153,7 @@
         val = properties[key];
         this[key] = val;
       }
-      this.spriteImg = Leo.sprite.getImg(this.spritesheet);
+      this.spriteImg = Leo.layers.getImg(this.spritesheet);
       layer = this;
       this.spriteImg.addEventListener('load', function() {
         var chunk, _i, _len, _ref2;
@@ -1411,6 +1360,161 @@
     };
 
     return Chunk;
+
+  })();
+
+  Leo.sprite = {};
+
+  Leo.sprite.Sprite = Sprite = (function() {
+    function Sprite(path) {
+      this.spritesheet = path;
+      this.spriteImg = this.getImg(path);
+      this.animations = {};
+      this.currentAnimation = null;
+    }
+
+    Sprite.prototype.addAnimation = function(animationData) {
+      if (!animationData) {
+        throw 'Sprite::addAnimation - Missing animationData';
+      }
+      if (!animationData.name) {
+        throw 'Sprite::addAnimation - Missing animationData.name';
+      }
+      console.assert(!this.animations[animationData.name]);
+      return this.animations[animationData.name] = new Animation(this, animationData);
+    };
+
+    Sprite.prototype.setAnimation = function(animName, frameNum) {
+      if (frameNum == null) {
+        frameNum = 0;
+      }
+      this.currentAnimation = animName;
+      return this.animations[this.currentAnimation].jumpToFrame(frameNum);
+    };
+
+    Sprite.prototype.advanceAnimation = function(cycleLength) {
+      return this.animations[this.currentAnimation].advance(cycleLength);
+    };
+
+    Sprite.prototype.getCurrentAnimation = function() {
+      return this.animations[this.currentAnimation];
+    };
+
+    Sprite.prototype.draw = function(x, y) {
+      var frame, frameData;
+
+      frame = this.animations[this.currentAnimation].getCurrentFrame();
+      frameData = frame.data;
+      return _frameBufferCtx.drawImage(this.spriteImg, frameData[0], frameData[1], frameData[2], frameData[3], Leo.view.posToPx(x, 'x') + frameData[4], Leo.view.posToPx(y, 'y') + frameData[5], frameData[2], frameData[3]);
+    };
+
+    Sprite.prototype.getImg = function() {
+      var path, _img, _imgObj;
+
+      path = this.spritesheet;
+      if (_img = this._img[path]) {
+        return _img[path];
+      } else {
+        _imgObj = this._img[path] = new Image();
+        _imgObj.src = Leo.core.imgPath + path;
+        return _imgObj;
+      }
+    };
+
+    Sprite.prototype._img = {};
+
+    return Sprite;
+
+  })();
+
+  Leo.sprite.Animation = Animation = (function() {
+    function Animation(sprite, options) {
+      var defaultOptions, frameData, _i, _len, _ref2;
+
+      defaultOptions = {
+        isLooping: false
+      };
+      this.options = Leo.util.merge(defaultOptions, options);
+      if (!(sprite instanceof Sprite)) {
+        throw 'Missing animation sprite';
+      }
+      this.sprite = sprite;
+      this.frameTimeLeft = 0;
+      this.frameNum = 0;
+      this.name = options.name;
+      this.frames = [];
+      _ref2 = this.options.frames;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        frameData = _ref2[_i];
+        this.addFrame(frameData);
+      }
+    }
+
+    Animation.prototype.addFrame = function(frame) {
+      if (!(frame instanceof Frame)) {
+        frame = new Frame(frame);
+      }
+      if (!(frame instanceof Frame)) {
+        throw 'Animation::addFrame - Missing Frame';
+      }
+      return this.frames.push(frame);
+    };
+
+    Animation.prototype.advance = function(cycleLength) {
+      var maxFrame, _results;
+
+      maxFrame = this.frames.length - 1;
+      this.frameNum = Math.min(this.frameNum, maxFrame);
+      this.frameTimeLeft -= cycleLength;
+      _results = [];
+      while (this.frameTimeLeft < 0) {
+        this.frameNum++;
+        if (this.frameNum > maxFrame) {
+          if (this.options.isLooping) {
+            this.frameNum = 0;
+          } else {
+            this.frameNum--;
+          }
+        }
+        _results.push(this.frameTimeLeft = this.frames[this.frameNum].data[6] + this.frameTimeLeft);
+      }
+      return _results;
+    };
+
+    Animation.prototype.jumpToFrame = function(frameNum) {
+      frameNum >> 0;
+      frameNum = Math.min(frameNum, this.frames.length - 1);
+      frameNum = Math.max(frameNum, 0);
+      this.frameNum = frameNum;
+      return this.frameTimeLeft = this.frames[frameNum].data[6];
+    };
+
+    Animation.prototype.getCurrentFrame = function() {
+      return this.frames[this.frameNum];
+    };
+
+    return Animation;
+
+  })();
+
+  Leo.sprite.Frame = Frame = (function() {
+    function Frame(data) {
+      var defaultData;
+
+      defaultData = {
+        x: 0,
+        y: 0,
+        w: 16,
+        h: 16,
+        offsetX: 0,
+        offsetY: 0,
+        duration: 200
+      };
+      data = Leo.util.merge(defaultData, data);
+      this.data = [data.x, data.y, data.w, data.h, data.offsetX, data.offsetY, data.duration];
+    }
+
+    return Frame;
 
   })();
 

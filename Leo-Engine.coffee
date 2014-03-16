@@ -51,6 +51,7 @@ Leo.shapes = []
 
 # Core functions
 Leo.core = {}
+Leo.core.imgPath = '_img/'
 
 Leo.core.init = ->
     _view = document.getElementById('leo-view')
@@ -241,25 +242,6 @@ Leo.io.allKeysPressed = (keys) ->
     return true
 
 
-# Sprites
-Leo.sprite = {}
-
-Leo.sprite.getImg = (path) ->
-    _img = Leo.sprite._img
-    if _img[path]
-        return _img[path]
-    else
-        _imgObj = _img[path] = new Image()
-        _imgObj.src = '_img/' + path
-        return _imgObj
-
-Leo.sprite.remove = (path) ->
-    _img = Leo.sprite._img
-    if _img[path] then _img[path] = null
-
-Leo.sprite._img = {} # Hashmap of image objects with the sprite path as key
-
-
 
 # Layers
 Leo.layers = {}
@@ -279,6 +261,23 @@ Leo.layers.get = (id) ->
         if layerObj.id is id
             return layerObj
     return null
+
+
+# TODO: Do like Actor sprites and assign Sprite objects to Layers.
+Leo.layers.getImg = (path) ->
+    _img = Leo.layers._img
+    if _img[path]
+        return _img[path]
+    else
+        _imgObj = _img[path] = new Image()
+        _imgObj.src = '_img/' + path
+        return _imgObj
+
+Leo.layers.removeImg = (path) ->
+    _img = Leo.layers._img
+    if _img[path] then _img[path] = null
+
+Leo.layers._img = {} # Hashmap of image objects with the sprite path as key
 
 
 
@@ -527,22 +526,6 @@ class Actor
 
     constructor: (properties) -> # Actor::constructor
         # Defaults
-        @spritesheet = '' # Name of the spritesheet file
-        @animations =
-            example:
-                frames: [] # [{int x (pixels), y, w, h, offsetX, offsetY, int duration (milliseconds)}, ...]
-                    # frames[f][0] = x
-                    # frames[f][1] = y
-                    # frames[f][2] = w
-                    # frames[f][3] = h
-                    # frames[f][4] = offsetX
-                    # frames[f][5] = offsetY
-                    # frames[f][6] = duration
-                doLoop: false
-                completeFallback: -> # Function at animation complete (or loop)
-        @animFrameTimeLeft = 0 # Time left on current animation frame
-        @animFrame = 0 # Current animation frame
-        @animName = '' # Name of the current animation running
         @posX = 0
         @posY = 0
         @speedX = 0
@@ -551,49 +534,23 @@ class Actor
         # User defined properties
         for key, val of properties
             @[key] = val
-        @spriteImg = Leo.sprite.getImg @spritesheet
 
         Leo.actors.push this
 
 
     draw: -> # Actor::draw
-        frame = @animations[@animName].frames[@animFrame]
-        _frameBufferCtx.drawImage @spriteImg,
-            frame[0], # Source x
-            frame[1], # Source y
-            frame[2], # Source width
-            frame[3], # Source height
-            Leo.view.posToPx(@posX, 'x') + frame[4], # Position + frame offset X
-            Leo.view.posToPx(@posY, 'y') + frame[5], # Position + frame offset Y
-            frame[2], # Destination width
-            frame[3], # Destination height
+        @sprite.draw(@posX, @posY)
 
 
-    setAnimation: (animName = '', animFrame = 0) -> # Actor::setAnimation
-        @animFrame = animFrame
-        @animFrameTimeLeft = @animations[animName].frames[0][6]
-        @animName = animName
-
-
-    advanceAnimation: (cycleLength) -> # Actor::advanceAnimation
-        animation = @animations[@animName]
-        maxFrame = animation.frames.length - 1
-        if @animFrame > maxFrame then @animFrame = maxFrame
-        @animFrameTimeLeft -= cycleLength
-        while @animFrameTimeLeft < 0
-            @animFrame++
-            if @animFrame > maxFrame
-                if animation.doLoop then @animFrame = 0 else @animFrame--
-            @animFrameTimeLeft = animation.frames[@animFrame][6] + @animFrameTimeLeft
-
-    jumpToAnimationFrame: (frameNum) ->
-        maxFrameNum = @animations[@animName].frames.length - 1
-        @animFrame = Math.min(frameNum, maxFrameNum)
+    setSprite: (sprite) -> # Actor::setSprite
+        unless sprite instanceof Sprite
+            throw 'Actor::setSprite - Missing Sprite'
+        @sprite = sprite
 
 
     update: (cycleLength) -> # Actor::update
         # Animation
-        @advanceAnimation cycleLength
+        @sprite.advanceAnimation(cycleLength)
 
         # Position
         @posX += @speedX * cycleLength
@@ -617,7 +574,7 @@ Leo.Player =
 class Player extends Actor
 
     constructor: (data) -> # Player::constructor
-        super(data)
+        super
 
         @accX = 0
         @dirPhysical = 0
@@ -726,9 +683,9 @@ class PlayerStateStanding extends PlayerStateGround
         @parent.accX = 0
 
         if @parent.dirVisual > 0
-            @parent.setAnimation 'standingRight'
+            @parent.sprite.setAnimation 'standingRight'
         else
-            @parent.setAnimation 'standingLeft'
+            @parent.sprite.setAnimation 'standingLeft'
 
 
     handleInput: (e) -> # PlayerStateStanding::handleInput
@@ -750,7 +707,7 @@ class PlayerStateRunning extends PlayerStateGround
         @_setSpeedAndAnim()
 
         if @parent.stateBefore instanceof PlayerStateAir
-            @parent.jumpToAnimationFrame(1)
+            @parent.sprite.getCurrentAnimation().jumpToFrame(1)
 
 
     handleInput: (e) -> # PlayerStateRunning::handleInput
@@ -774,19 +731,19 @@ class PlayerStateRunning extends PlayerStateGround
                     else if leftPressed and not rightPressed
                         @parent.dirPhysical = -1
                         @parent.dirVisual = -1
-                        @_setSpeedAndAnim { animFrame: 1 }
+                        @_setSpeedAndAnim { frameNum: 1 }
                     else # if not leftPressed and rightPressed
                         @parent.dirPhysical = 1
                         @parent.dirVisual = 1
-                        @_setSpeedAndAnim { animFrame: 1 }
+                        @_setSpeedAndAnim { frameNum: 1 }
 
 
     _setSpeedAndAnim: (options = {})-> # PlayerStateRunning::_setSpeedAndAnim
         @parent.accX = @parent.accelerationGround * @parent.dirPhysical
         if @parent.dirVisual > 0
-            @parent.setAnimation 'runningRight', options.animFrame
+            @parent.sprite.setAnimation 'runningRight', options.frameNum
         else
-            @parent.setAnimation 'runningLeft', options.animFrame
+            @parent.sprite.setAnimation 'runningLeft', options.frameNum
 
 
 Leo.PlayerStateAir =
@@ -796,9 +753,9 @@ class PlayerStateAir extends PlayerState
         super
 
         if @parent.dirVisual > 0
-            @parent.setAnimation 'jumpingRight'
+            @parent.sprite.setAnimation 'jumpingRight'
         else
-            @parent.setAnimation 'jumpingLeft'
+            @parent.sprite.setAnimation 'jumpingLeft'
 
 
     handleInput: (e) -> # PlayerStateAir::handleInput
@@ -821,19 +778,19 @@ class PlayerStateAir extends PlayerState
                     else if leftPressed and not rightPressed
                         @parent.dirPhysical = -1
                         @parent.dirVisual = -1
-                        @_setSpeedAndAnim { animFrame: 1 }
+                        @_setSpeedAndAnim { frameNum: 1 }
                     else # if not leftPressed and rightPressed
                         @parent.dirPhysical = 1
                         @parent.dirVisual = 1
-                        @_setSpeedAndAnim { animFrame: 1 }
+                        @_setSpeedAndAnim { frameNum: 1 }
 
 
     _setSpeedAndAnim: -> # PlayerStateAir::_setSpeedAndAnim
         @parent.accX = @parent.accelerationAir * @parent.dirPhysical
         if @parent.dirVisual > 0
-            @parent.setAnimation 'jumpingRight'
+            @parent.sprite.setAnimation 'jumpingRight'
         else
-            @parent.setAnimation 'jumpingLeft'
+            @parent.sprite.setAnimation 'jumpingLeft'
 
 
     update: (cycleLength) -> # PlayerStateAir::update
@@ -873,6 +830,7 @@ class PlayerStateFalling extends PlayerStateAir
 
 Leo.Layer =
 class Layer
+
     constructor: (properties) -> # Layer::constructor
         # Defaults
         @spritesheet = '' # Name of the spritesheet file
@@ -890,7 +848,7 @@ class Layer
         # User defined properties
         for key, val of properties
             @[key] = val
-        @spriteImg = Leo.sprite.getImg @spritesheet
+        @spriteImg = Leo.layers.getImg @spritesheet
         layer = this
         @spriteImg.addEventListener 'load', ->
             if not layer.chunks
@@ -985,6 +943,7 @@ class Layer
 
 Leo.Chunk =
 class Chunk
+
     constructor: (layer, data) -> # Chunk::constructor
         @tiles = []
         for name, datum of data
@@ -998,6 +957,7 @@ class Chunk
         @drawBuffer.width = @width * Leo.background.tileSize
         @drawBuffer.height = ((@tiles.length / @width) >> 0) * Leo.background.tileSize
         @tileOffsetXPx = @tileOffsetX * Leo.background.tileSize
+
 
     draw: (posX, posY) -> # Chunk::draw
         # Don't draw chunks out of view
@@ -1065,3 +1025,140 @@ class Chunk
         for i in [0..data.length]
             @tiles.push data.charCodeAt(i) - 1  # -1 to reverse +1 from Chunk::serialize
         @drawBuffer.height = ((@tiles.length / @width) >> 0) * Leo.background.tileSize
+
+
+
+# Sprite
+Leo.sprite = {}
+
+
+Leo.sprite.Sprite =
+class Sprite
+
+    constructor: (path) -> # Sprite::constructor
+        @spritesheet = path
+        @spriteImg = @getImg(path)
+        @animations = {}
+        @currentAnimation = null
+
+
+    addAnimation: (animationData) -> # Sprite::addAnimation
+        unless animationData
+            throw 'Sprite::addAnimation - Missing animationData'
+
+        unless animationData.name
+            throw 'Sprite::addAnimation - Missing animationData.name'
+
+        console.assert !@animations[animationData.name] #Debug
+        @animations[animationData.name] = new Animation this, animationData
+
+
+    setAnimation: (animName, frameNum = 0) -> # Sprite::setAnimation
+        @currentAnimation = animName
+        @animations[@currentAnimation].jumpToFrame(frameNum)
+
+
+    advanceAnimation: (cycleLength) -> # Sprite::advanceAnimation
+        @animations[@currentAnimation].advance(cycleLength)
+
+
+    getCurrentAnimation: ->
+        return @animations[@currentAnimation]
+
+
+    draw: (x, y) -> # Sprite::draw
+        frame = @animations[@currentAnimation].getCurrentFrame()
+        frameData = frame.data
+        _frameBufferCtx.drawImage @spriteImg,
+            frameData[0], # Source x
+            frameData[1], # Source y
+            frameData[2], # Source width
+            frameData[3], # Source height
+            Leo.view.posToPx(x, 'x') + frameData[4], # Position + frame offset X
+            Leo.view.posToPx(y, 'y') + frameData[5], # Position + frame offset Y
+            frameData[2], # Destination width
+            frameData[3], # Destination height
+
+
+    getImg: -> # Sprite::getImg
+        path = @spritesheet
+        if _img = @_img[path]
+            return _img[path]
+        else
+            _imgObj = @_img[path] = new Image()
+            _imgObj.src = Leo.core.imgPath + path
+            return _imgObj
+
+    _img: {} # Shared hashmap of image objects with the sprite path as key
+
+
+
+Leo.sprite.Animation =
+class Animation
+
+    constructor: (sprite, options) -> # Animation::constructor
+        defaultOptions =
+            isLooping: false
+        @options = Leo.util.merge(defaultOptions, options)
+
+        unless sprite instanceof Sprite
+            throw 'Missing animation sprite'
+        @sprite = sprite
+
+        @frameTimeLeft = 0 # Time left on current animation frame
+        @frameNum = 0 # Current animation frame
+        @name = options.name
+
+        @frames = []
+        for frameData in @options.frames
+            @addFrame(frameData)
+
+
+    addFrame: (frame) -> # Animation::addFrame
+        unless frame instanceof Frame
+            frame = new Frame(frame)
+
+        unless frame instanceof Frame
+            throw 'Animation::addFrame - Missing Frame'
+
+        @frames.push frame
+
+
+    advance: (cycleLength) -> # Animation::advance
+        maxFrame = @frames.length - 1
+        @frameNum = Math.min(@frameNum, maxFrame)
+        @frameTimeLeft -= cycleLength
+        while @frameTimeLeft < 0
+            @frameNum++
+            if @frameNum > maxFrame
+                if @options.isLooping  then @frameNum = 0 else @frameNum--
+            @frameTimeLeft = @frames[@frameNum].data[6] + @frameTimeLeft
+
+
+    jumpToFrame: (frameNum) -> # Animation::jumpToFrame
+        frameNum >> 0
+        frameNum = Math.min(frameNum, @frames.length - 1)
+        frameNum = Math.max(frameNum, 0)
+        @frameNum = frameNum
+        @frameTimeLeft = @frames[frameNum].data[6]
+
+
+    getCurrentFrame: -> # Animation::getCurrentFrame
+        return @frames[@frameNum]
+
+
+
+Leo.sprite.Frame =
+class Frame
+
+    constructor: (data) -> # Frame::constructor
+        defaultData =
+            x: 0
+            y: 0
+            w: 16
+            h: 16
+            offsetX: 0
+            offsetY: 0
+            duration: 200
+        data = Leo.util.merge(defaultData, data)
+        @data = [data.x, data.y, data.w, data.h, data.offsetX, data.offsetY, data.duration]
