@@ -1,4 +1,6 @@
-### Copyright 2014 Magnus Leo. All rights reserved. ###
+### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
+
+Leo = window.Leo ?= {}
 
 window.addEventListener 'load', ->
     Leo.core.init()
