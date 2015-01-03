@@ -1,9 +1,9 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-core = require('./core')
-background = require('./background')
-layers = require('./layers')
-view = require('./view')
+core = require('../modules/core')
+background = require('../modules/background')
+layers = require('../modules/layers')
+view = require('../modules/view')
 
 module.exports =
 class Layer

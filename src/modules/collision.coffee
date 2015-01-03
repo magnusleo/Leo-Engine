@@ -3,8 +3,8 @@
 collision = {}
 module.exports = collision
 
-Line = require('./Line')
-Rect = require('./Rect')
+Line = require('../classes/Line')
+Rect = require('../classes/Rect')
 util = require('./util')
 view = require('./view')
 

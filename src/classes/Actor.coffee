@@ -1,6 +1,6 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-core = require('./core')
+core = require('../modules/core')
 Sprite = require('./Sprite')
 
 module.exports =

@@ -1,13 +1,13 @@
 ### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
 
-core = require('./core')
-event = require('./event')
-Layer = require('./Layer')
-layers = require('./layers')
-Player = require('./Player')
-Sprite = require('./Sprite')
-util = require('./util')
-view = require('./view')
+core = require('./modules/core')
+event = require('./modules/event')
+Layer = require('./classes/Layer')
+layers = require('./modules/layers')
+Player = require('./classes/Player')
+Sprite = require('./classes/Sprite')
+util = require('./modules/util')
+view = require('./modules/view')
 
 
 window.addEventListener 'load', ->

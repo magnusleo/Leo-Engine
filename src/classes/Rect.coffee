@@ -1,7 +1,7 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 Shape = require('./Shape')
-core = require('./core')
+core = require('../modules/core')
 
 module.exports =
 class Rect extends Shape

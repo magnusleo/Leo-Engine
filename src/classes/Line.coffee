@@ -1,9 +1,9 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 Shape = require('./Shape')
-util = require('./util')
-core = require('./core')
-view = require('./view')
+util = require('../modules/util')
+core = require('../modules/core')
+view = require('../modules/view')
 
 module.exports =
 class Line extends Shape

@@ -1,7 +1,7 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 Frame = require('./Frame')
-util = require('./util')
+util = require('../modules/util')
 
 module.exports =
 class Animation

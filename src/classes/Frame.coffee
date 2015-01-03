@@ -1,6 +1,6 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-util = require('./util')
+util = require('../modules/util')
 
 module.exports =
 class Frame

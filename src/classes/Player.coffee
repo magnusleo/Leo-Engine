@@ -1,12 +1,12 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 Actor = require('./Actor')
-collision = require('./collision')
-environment = require('./environment')
-event = require('./event')
-io = require('./io')
-layers = require('./layers')
-util = require('./util')
+collision = require('../modules/collision')
+environment = require('../modules/environment')
+event = require('../modules/event')
+io = require('../modules/io')
+layers = require('../modules/layers')
+util = require('../modules/util')
 
 module.exports =
 class Player extends Actor

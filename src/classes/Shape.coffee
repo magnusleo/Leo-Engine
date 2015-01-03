@@ -1,9 +1,9 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-core = require('./core')
-background = require('./background')
-util = require('./util')
-view = require('./view')
+core = require('../modules/core')
+background = require('../modules/background')
+util = require('../modules/util')
+view = require('../modules/view')
 
 module.exports =
 class Shape

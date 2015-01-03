@@ -1,8 +1,8 @@
 ### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 Animation = require('./Animation')
-core = require('./core')
-view = require('./view')
+core = require('../modules/core')
+view = require('../modules/view')
 
 module.exports =
 class Sprite
