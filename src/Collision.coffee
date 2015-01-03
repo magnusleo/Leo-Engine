@@ -1,12 +1,17 @@
-### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
+### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-Leo = window.Leo ?= {}
-Leo.collision = {}
+collision = {}
+module.exports = collision
 
-Leo.collision.actorToLayer = (actor, layer, options) ->
+Line = require('./Line')
+Rect = require('./Rect')
+util = require('./util')
+view = require('./view')
+
+collision.actorToLayer = (actor, layer, options) ->
     o =
         reposition: false
-    o = Leo.util.merge(o, options)
+    o = util.merge(o, options)
 
     collisions =
         any: false
@@ -85,9 +90,9 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                             newSpeedX = 0
                             collisions.any = true
                             collisions.right = true
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                         else
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y, x2:x, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
                     else
                         # Going left. Is not an edge if the tile to the right is solid.
                         neighborTile = layer.getTile(x, y, 1, 0)
@@ -96,9 +101,9 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                             newSpeedX = 0
                             collisions.any = true
                             collisions.left = true
-                            Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            view.drawOnce {class:Line, x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                         else
-                            Leo.view.drawOnce {shape:'Line', x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                            view.drawOnce {class:Line, x:x+1, y:y, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
                 else
                     # Vertical collisions
                     if actor.speedY < 0
@@ -109,9 +114,9 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                             newSpeedY = 0
                             collisions.any = true
                             collisions.top = true
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                         else
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y+1, x2:x+1, y2:y+1, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
                     else if actor.speedY > 0
                         # Going down. Is not an edge if the tile downwards is solid.
                         neighborTile = layer.getTile(x, y, 0, -1)
@@ -120,17 +125,17 @@ Leo.collision.actorToLayer = (actor, layer, options) ->
                             newSpeedY = 0
                             collisions.any = true
                             collisions.bottom = true
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(0,128,0,0.9)'} #Debug
                         else
-                            Leo.view.drawOnce {shape:'Line', x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
+                            view.drawOnce {class:Line, x:x, y:y, x2:x+1, y2:y, strokeStyle:'rgba(255,64,0,0.6)'} #Debug
 
                 # Debug highlight block
                 if neighborTile == -1
                     # Collision
-                    Leo.view.drawOnce {shape:'Rect', x:x, y:y, w:1, h:1, fillStyle:'rgba(0,255,0,0.6)'} #Debug
+                    view.drawOnce {class:Rect, x:x, y:y, w:1, h:1, fillStyle:'rgba(0,255,0,0.6)'} #Debug
                 else
                     # Internal edge; no collision
-                    Leo.view.drawOnce {shape:'Rect', x:x, y:y, w:1, h:1, fillStyle:'rgba(255,255,0,0.5)'} #Debug
+                    view.drawOnce {class:Rect, x:x, y:y, w:1, h:1, fillStyle:'rgba(255,255,0,0.5)'} #Debug
 
     # Apply new position and speed
     if o.reposition

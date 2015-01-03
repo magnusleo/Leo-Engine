@@ -1,8 +1,9 @@
-### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
+### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-Leo = window.Leo ?= {}
+core = require('./core')
+Sprite = require('./Sprite')
 
-Leo.Actor =
+module.exports =
 class Actor
 
     constructor: (properties) -> # Actor::constructor
@@ -16,7 +17,7 @@ class Actor
         for key, val of properties
             @[key] = val
 
-        Leo.actors.push this
+        core.actors.push this
 
 
     draw: -> # Actor::draw

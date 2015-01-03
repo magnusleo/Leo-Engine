@@ -4,83 +4,42 @@ module.exports = (grunt) ->
     grunt.initConfig
         pkg: grunt.file.readJSON('package.json')
         clean:
-            all: ['tmp', 'dist']
-            tmp: ['tmp']
-        coffee:
+            default: ['dist']
+        browserify:
             default:
                 files:
-                    'tmp/game.js': ['tmp/game.coffee']
+                    'dist/game.js': ['src/main.coffee']
                 options:
-                    bare: true
-            dev:
-                files:
-                    'tmp/game.js': ['tmp/game.coffee']
-                options:
-                    bare: true
-                    sourceMap: true
-        concat:
-            default:
-                src: [
-                    'src/polyfill.coffee'
-                    'src/Util.coffee'
-                    'src/Core.coffee'
-                    'src/IO.coffee'
-                    'src/Shape.coffee'
-                    'src/Sprite.coffee'
-                    'src/Collision.coffee'
-                    'src/Layer.coffee'
-                    'src/Actor.coffee'
-                    'src/Player.coffee'
-                    'src/main.coffee'
-                ]
-                dest: 'tmp/game.coffee'
-        copy:
-            dev:
-                files: [
-                    src: ['tmp/game.coffee'], dest: 'dist/game.coffee'
-                ,
-                    src: ['tmp/game.js'], dest: 'dist/game.js'
-                ]
+                    transform: ['coffeeify']
+                    browserifyOptions:
+                        extensions: ['.coffee']
+                        debug: true
         uglify:
             default:
                 options:
                     banner: '/*! <%= pkg.name %> copyright (c) <%= grunt.template.today(\'yyyy\') %> <%= pkg.author %>.  All rights reserved. */\n'
                 files:
-                    'dist/game.min.js': ['tmp/game.js']
-            dev:
-                options:
-                    banner: '/*! <%= pkg.name %> copyright (c) <%= grunt.template.today(\'yyyy\') %> <%= pkg.author %>.  All rights reserved. */\n'
-                    sourceMap: true
-                    sourceMapIn: 'tmp/game.js.map'
-                files:
-                    'dist/game.min.js': ['tmp/game.js']
+                    'dist/game.min.js': ['dist/game.js']
         watch:
-            files: ['src/*']
+            files: ['src/**']
             tasks: ['dev']
 
 
     # Plugins
     grunt.loadNpmTasks('grunt-contrib-clean')
-    grunt.loadNpmTasks('grunt-contrib-coffee')
-    grunt.loadNpmTasks('grunt-contrib-concat')
-    grunt.loadNpmTasks('grunt-contrib-copy')
     grunt.loadNpmTasks('grunt-contrib-uglify')
     grunt.loadNpmTasks('grunt-contrib-watch')
+    grunt.loadNpmTasks('grunt-browserify')
     
 
     # Tasks
     grunt.registerTask('default', [
-        'clean:all'
-        'concat'
-        'coffee'
+        'clean'
+        'browserify'
         'uglify'
-        'clean:tmp'
     ])
+
     grunt.registerTask('dev', [
-        'clean:all'
-        'concat'
-        'coffee'
-        'uglify'
-        'copy'
-        'clean:tmp'
+        'clean'
+        'browserify'
     ])

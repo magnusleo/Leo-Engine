@@ -1,66 +1,44 @@
-### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
+### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
 #IDEA: Dynamic zoom and automatic screen size (adapt to window).
 
-Leo = window.Leo ?= {}
+background = require('./background')
+event = require('./event')
+layers = require('./layers')
+util = require('./util')
+view = require('./view')
 
-# Data
+core = {}
+module.exports = core
 
 # Private variables
 _view = null
 _viewCtx = null
 _frameBuffer = document.createElement 'canvas'
-_frameBufferCtx = _frameBuffer.getContext '2d'
 _latestFrameTime = Date.now()
-_pressedKeys = []
-_camX = 0
-_camY = 0
-_camW = 0
-_camH = 0
 _editTile = -1
 
 # Public variables
-Leo.environment =
-    gravity: 60 # Tiles per second^2
-
-Leo.view =
-    scale: 2
-    cameraPosX: 2.0 # Unit tile
-    cameraPosY: 0.0
-    cameraSpeedX: 0.0 # One tiles per second, positive is right
-    cameraSpeedY: 0.0
-    cameraWidth: 30
-    cameraHeight: 17
-
-Leo.view.posToPx = (posX, axis, parallax = 1.0) ->
-    return ((posX - Leo.view['cameraPos' + axis.toUpperCase()]) * Leo.background.tileSize * parallax) >> 0
-
-Leo.view.drawOnceQue = []
-Leo.view.drawOnce = (data) ->
-    Leo.view.drawOnceQue.push data
-
-
-Leo.background =
-    tileSize: 16
-    color: '#6ec0ff'
-
-Leo.actors = []
-Leo.shapes = []
+core.frameBufferCtx = _frameBuffer.getContext '2d'
+core.camX = 0
+core.camY = 0
+core.camW = 0
+core.camH = 0
+core.actors = []
+core.shapes = []
 
 
 # Core functions
-Leo.core = {}
-Leo.core.imgPath = '_img/'
+core.imgPath = '_img/'
 
-Leo.core.init = ->
+core.init = ->
     _view = document.getElementById('leo-view')
-    Leo._view = _view
 
     _frameBuffer.width  = _view.width
     _frameBuffer.height = _view.height
 
-    _view.width          = _view.width  * Leo.view.scale
-    _view.height         = _view.height * Leo.view.scale
+    _view.width          = _view.width  * view.scale
+    _view.height         = _view.height * view.scale
 
     _viewCtx = _view.getContext('2d')
     _viewCtx.imageSmoothingEnabled = _viewCtx.webkitImageSmoothingEnabled = _viewCtx.mozImageSmoothingEnabled = false
@@ -73,15 +51,15 @@ Leo.core.init = ->
 
         mouseX   = e.offsetX
         mouseY   = e.offsetY
-        camX     = Leo.view.cameraPosX
-        camY     = Leo.view.cameraPosY
-        scale    = Leo.view.scale
-        tileSize = Leo.background.tileSize
+        camX     = view.cameraPosX
+        camY     = view.cameraPosY
+        scale    = view.scale
+        tileSize = background.tileSize
 
         tileX    = (mouseX / scale / tileSize + camX) >> 0
         tileY    = (mouseY / scale / tileSize + camY) >> 0
 
-        layer    = Leo.layers.get('ground')
+        layer    = layers.get('ground')
         tile     = layer.getTile(tileX, tileY)
         console.log tileX, tileY #Debug
 
@@ -93,39 +71,39 @@ Leo.core.init = ->
     _view.addEventListener 'mouseup', (e) ->
         e.preventDefault()
 
-    window.addEventListener 'keydown', Leo.event._keydown
-    window.addEventListener 'keyup',   Leo.event._keyup
+    window.addEventListener 'keydown', event._keydown
+    window.addEventListener 'keyup',   event._keyup
 
-    window.requestAnimationFrame(Leo.core.cycle)
+    window.requestAnimationFrame(core.cycle)
 
-Leo.core.draw = ->
-    if Leo.util.documentHidden()
+core.draw = ->
+    if util.documentHidden()
         return
 
     # Calculate camera pixel values
-    _camX = Leo.view.cameraPosX * Leo.background.tileSize
-    _camY = Leo.view.cameraPosY * Leo.background.tileSize
-    _camW = Leo.view.cameraWidth * Leo.background.tileSize
-    _camH = Leo.view.cameraHeight * Leo.background.tileSize
+    core.camX = view.cameraPosX * background.tileSize
+    core.camY = view.cameraPosY * background.tileSize
+    core.camW = view.cameraWidth * background.tileSize
+    core.camH = view.cameraHeight * background.tileSize
 
     # Background color
-    _frameBufferCtx.fillStyle = Leo.background.color
-    _frameBufferCtx.fillRect 0, 0, _view.width, _view.height
+    core.frameBufferCtx.fillStyle = background.color
+    core.frameBufferCtx.fillRect 0, 0, _view.width, _view.height
 
     # Render layers
-    for layer in Leo.layers.objects
+    for layer in layers.objects
         layer.draw()
 
     # Render Actors
-    for actor in Leo.actors
+    for actor in core.actors
         actor.draw()
 
     # Render shapes
-    for shape in Leo.shapes
+    for shape in core.shapes
         shape.draw()
 
-    while so = Leo.view.drawOnceQue.pop()
-        shape = Leo['drawOnce' + so.shape] ?= new Leo[so.shape]()
+    while so = view.drawOnceQue.pop()
+        shape = new so.class()
         for name, val of so
             shape[name] = val
         shape.isVisible = true
@@ -135,10 +113,10 @@ Leo.core.draw = ->
     _viewCtx.drawImage _frameBuffer,
         0,
         0,
-        _frameBuffer.width * Leo.view.scale,
-        _frameBuffer.height * Leo.view.scale
+        _frameBuffer.width * view.scale,
+        _frameBuffer.height * view.scale
 
-Leo.core.cycle = ->
+core.cycle = ->
     # Frame timing
     thisFrameTime = Date.now()
     cycleLength = Math.min(thisFrameTime - _latestFrameTime, 100) * 0.001 # Unit seconds
@@ -146,21 +124,21 @@ Leo.core.cycle = ->
         return
 
     # Camera
-    Leo.view.cameraPosX += Leo.view.cameraSpeedX * cycleLength
+    view.cameraPosX += view.cameraSpeedX * cycleLength
 
     # Actors
-    for actor in Leo.actors
+    for actor in core.actors
         actor.update(cycleLength)
 
     # Finish the frame
-    Leo.core.draw()
+    core.draw()
     _latestFrameTime = thisFrameTime
-    window.requestAnimationFrame(Leo.core.cycle)
+    window.requestAnimationFrame(core.cycle)
 
-    Leo.cycleCallback(cycleLength)
+    core.cycleCallback(cycleLength)
 
-Leo.core.DATA_TYPES =
+core.DATA_TYPES =
     CHUNK: 0
 
 
-Leo.cycleCallback = -> # Override Leo.cycleCallback with your own function
+core.cycleCallback = -> # Override core.cycleCallback with your own function

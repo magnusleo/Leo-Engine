@@ -1,28 +1,36 @@
 ### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
 
-Leo = window.Leo ?= {}
+core = require('./core')
+event = require('./event')
+Layer = require('./Layer')
+layers = require('./layers')
+Player = require('./Player')
+Sprite = require('./Sprite')
+util = require('./util')
+view = require('./view')
+
 
 window.addEventListener 'load', ->
-    Leo.core.init()
+    core.init()
 
 
     # Events
 
-    Leo.event.keydown = (e) ->
-        key = Leo.util.KEY_CODES
+    event.keydown = (e) ->
+        key = util.KEY_CODES
         switch e.keyCode
             when key.R
                 window.location.reload()
             else
-                Leo.player.handleInput(e)
+                player.handleInput(e)
 
-    Leo.event.keyup = (e) ->
-        Leo.player.handleInput(e)
+    event.keyup = (e) ->
+        player.handleInput(e)
 
 
     # Player
 
-    playerSprite = new Leo.sprite.Sprite('sprite-olle.png')
+    playerSprite = new Sprite('sprite-olle.png')
 
     playerSprite.addAnimation
         name: 'jumpingLeft'
@@ -72,7 +80,7 @@ window.addEventListener 'load', ->
         ]
         isLooping: false
 
-    Leo.player = new Leo.Player
+    player = new Player
         sprite: playerSprite
         posX: 6
         posY: 6
@@ -87,13 +95,13 @@ window.addEventListener 'load', ->
 
     # Camera
 
-    Leo.cycleCallback = ->
-        Leo.view.cameraPosX = Leo.player.posX - 15
+    core.cycleCallback = ->
+        view.cameraPosX = player.posX - 15
 
 
     # Background
 
-    Leo.layers.add new Leo.Layer
+    layers.add new Layer
         id: 'mountains'
         spritesheet: 'sprite-background.png'
         isLooping: true
@@ -108,7 +116,7 @@ window.addEventListener 'load', ->
             width: 10
         ]
 
-    Leo.layers.add new Leo.Layer
+    layers.add new Layer
         id: 'cloud 1'
         spritesheet: 'sprite-background.png'
         isLooping: true
@@ -123,7 +131,7 @@ window.addEventListener 'load', ->
             width: 4
         ]
 
-    Leo.layers.add new Leo.Layer
+    layers.add new Layer
         id: 'cloud 2'
         spritesheet: 'sprite-background.png'
         isLooping: true
@@ -141,7 +149,7 @@ window.addEventListener 'load', ->
 
     # Ground
 
-    Leo.layers.add new Leo.Layer
+    layers.add new Layer
         id: 'ground'
         spritesheet: 'sprite-background.png'
         chunks: [

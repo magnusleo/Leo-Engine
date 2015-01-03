@@ -1,8 +1,14 @@
-### Copyright (c) 2014 Magnus Leo. All rights reserved. ###
+### Copyright (c) 2015 Magnus Leo. All rights reserved. ###
 
-Leo = window.Leo ?= {}
+Actor = require('./Actor')
+collision = require('./collision')
+environment = require('./environment')
+event = require('./event')
+io = require('./io')
+layers = require('./layers')
+util = require('./util')
 
-Leo.Player =
+module.exports =
 class Player extends Actor
 
     constructor: (data) -> # Player::constructor
@@ -31,7 +37,7 @@ class Player extends Actor
 
 
     update: (cycleLength) -> # Player::update
-        @speedY += Leo.environment.gravity * cycleLength
+        @speedY += environment.gravity * cycleLength
         @speedX += @accX * cycleLength
         @speedX = Math.min(@speedX, @speedXMax)
         @speedX = Math.max(@speedX, -@speedXMax)
@@ -39,7 +45,7 @@ class Player extends Actor
         super(cycleLength)
         @state.update(cycleLength)
 
-        collisions = Leo.collision.actorToLayer this, Leo.layers.get('ground'),
+        collisions = collision.actorToLayer this, layers.get('ground'),
             reposition: true
 
         # Update player state
@@ -65,14 +71,14 @@ class Player extends Actor
 #     |__PlayerStateStanding
 #     |__PlayerStateRunning
 
-Leo.PlayerState =
+PlayerState =
 class PlayerState
 
     constructor: (@parent) -> # PlayerState::constructor
 
 
     handleInput: (e) -> # PlayerState::handleInput
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
         switch e.keyCode
 
             when key.LEFT
@@ -88,7 +94,7 @@ class PlayerState
 
 
 
-Leo.PlayerStateGround =
+PlayerStateGround =
 class PlayerStateGround extends PlayerState
 
     constructor: (data) -> # PlayerStateGround::constructor
@@ -97,7 +103,7 @@ class PlayerStateGround extends PlayerState
 
     handleInput: (e) -> # PlayerStateGround::handleInput
         super(e)
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
 
         if e.type is 'keydown'
             switch e.keyCode
@@ -106,7 +112,7 @@ class PlayerStateGround extends PlayerState
 
 
 
-Leo.PlayerStateStanding =
+PlayerStateStanding =
 class PlayerStateStanding extends PlayerStateGround
 
     constructor: (data) -> # PlayerStateStanding::constructor
@@ -122,7 +128,7 @@ class PlayerStateStanding extends PlayerStateGround
 
     handleInput: (e) -> # PlayerStateStanding::handleInput
         super(e)
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
 
         if e.type is 'keydown'
             switch e.keyCode
@@ -131,7 +137,7 @@ class PlayerStateStanding extends PlayerStateGround
 
 
 
-Leo.PlayerStateRunning =
+PlayerStateRunning =
 class PlayerStateRunning extends PlayerStateGround
 
     constructor: (data) -> # PlayerStateRunning::constructor
@@ -144,7 +150,7 @@ class PlayerStateRunning extends PlayerStateGround
 
     handleInput: (e) -> # PlayerStateRunning::handleInput
         super(e)
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
 
         if e.type is 'keydown'
             switch e.keyCode
@@ -154,8 +160,8 @@ class PlayerStateRunning extends PlayerStateGround
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    rightPressed = Leo.io.isKeyPressed(key.RIGHT)
-                    leftPressed = Leo.io.isKeyPressed(key.LEFT)
+                    rightPressed = io.isKeyPressed(key.RIGHT)
+                    leftPressed = io.isKeyPressed(key.LEFT)
                     if not leftPressed and not rightPressed
                         @parent.setState PlayerStateStanding
                         @parent.dirPhysical = 0
@@ -178,7 +184,7 @@ class PlayerStateRunning extends PlayerStateGround
             @parent.sprite.setAnimation 'runningLeft', options.frameNum
 
 
-Leo.PlayerStateAir =
+PlayerStateAir =
 class PlayerStateAir extends PlayerState
 
     constructor: (data) -> # PlayerStateAir::constructor
@@ -192,7 +198,7 @@ class PlayerStateAir extends PlayerState
 
     handleInput: (e) -> # PlayerStateAir::handleInput
         super
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
 
         if e.type is 'keydown'
             switch e.keyCode
@@ -202,8 +208,8 @@ class PlayerStateAir extends PlayerState
         else if e.type is 'keyup'
             switch e.keyCode
                 when key.LEFT, key.RIGHT
-                    rightPressed = Leo.io.isKeyPressed(key.RIGHT)
-                    leftPressed = Leo.io.isKeyPressed(key.LEFT)
+                    rightPressed = io.isKeyPressed(key.RIGHT)
+                    leftPressed = io.isKeyPressed(key.LEFT)
                     if not leftPressed and not rightPressed
                         @parent.dirPhysical = 0
                         @parent.accX = 0
@@ -230,7 +236,7 @@ class PlayerStateAir extends PlayerState
 
 
 
-Leo.PlayerStateJumping =
+PlayerStateJumping =
 class PlayerStateJumping extends PlayerStateAir
 
     constructor: (data) -> # PlayerStateJumping::constructor
@@ -240,7 +246,7 @@ class PlayerStateJumping extends PlayerStateAir
 
     handleInput: (e) -> # PlayerStateJumping::handleInput
         super
-        key = Leo.util.KEY_CODES
+        key = util.KEY_CODES
 
         if e.type is 'keyup'
             switch e.keyCode
@@ -255,5 +261,5 @@ class PlayerStateJumping extends PlayerStateAir
 
 
 
-Leo.PlayerStateFalling =
+PlayerStateFalling =
 class PlayerStateFalling extends PlayerStateAir
