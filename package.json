@@ -2,8 +2,10 @@
     "name": "Leo-Engine",
     "author": "Magnus Leo",
     "version": "0.1.0",
+    "description": "A hobby game engine built in CoffeeScript arount the HTML Canvas API.",
     "repository": {
-        "type": "git"
+        "type": "git",
+        "url": "https://github.com/magnusleo/Leo-Engine"
     },
     "devDependencies": {
         "coffeeify": "~1.0.0",
@@ -14,5 +16,10 @@
         "grunt-contrib-coffee": "~0.10.1",
         "grunt-contrib-uglify": "~0.4.0",
         "grunt-contrib-watch": "~0.6.1"
+    },
+    "license": "MIT",
+    "scripts": {
+        "build": "grunt",
+        "watch": "grunt watch"
     }
 }
