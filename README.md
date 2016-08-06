@@ -12,6 +12,10 @@ This engine is solely my hobby project for learning. It is _not_ feature complet
 - Level editing (`click` to draw, `alt-click` for pipette, `s` for save and `l` for load
 - Compressed serialization of level data
 
+### Demo
+[![Leo Engine demo](https://magnusleo.github.io/Leo-Engine/demo.png)](https://magnusleo.github.io/Leo-Engine/)
+Check out the [live demo](https://magnusleo.github.io/Leo-Engine/)!
+
 # Build
 First you will need [NodeJS](http://nodejs.org/). Then run:
 
